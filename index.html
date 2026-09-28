@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool NFL - Admin & Grille</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; }
+        .card-match { background-color: #161b22; border: 1px solid #30363d; }
+        th { cursor: pointer; user-select: none; }
+        th:hover { background-color: #30363d; }
+        .group-a-bg { background-color: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.4); }
+        .group-b-bg { background-color: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); }
+        .group-c-bg { background-color: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); }
+        .group-d-bg { background-color: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <!-- ÉCRAN DE CONNEXION AVEC MOT DE PASSE -->
+    <div id="login-screen" class="fixed inset-0 bg-[#0d1117] z-50 flex items-center justify-center p-4">
+        <div class="card-match p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
+            <h2 class="text-2xl font-bold text-white mb-2">🏈 Connexion au Pool NFL</h2>
+            <p class="text-gray-400 text-sm mb-6">Entre ton identifiant et ton mot de passe.</p>
+            
+            <input type="text" id="username-input" placeholder="Identifiant (ex: Will91)" 
+                class="w-full bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500 mb-3">
+            
+            <input type="password" id="password-input" placeholder="Mot de passe" 
+                class="w-full bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500 mb-6">
+            
+            <button onclick="handleLogin()" class="w-full bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 rounded-lg transition shadow-md">
+                Se connecter
+            </button>
+        </div>
+    </div>
+
+    <!-- APPLICATION PRINCIPALE -->
+    <div id="app-content" class="max-w-6xl mx-auto p-6 hidden">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                    📋 Pool NFL - <span id="current-week-title">Semaine 1</span>
+                </h1>
+                <p class="text-xs text-gray-400 mt-1">Connecté en tant que : <span id="display-username" class="text-blue-400 font-semibold"></span> <span id="admin-badge" class="hidden bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold ml-1">ADMIN</span> (<a href="#" onclick="logout()" class="underline hover:text-white">Déconnexion</a>)</p>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex bg-[#161b22] p-1.5 rounded-xl border border-[#30363d] gap-1.5 items-center flex-wrap shadow-md">
+                    <button onclick="switchTab('standings')" id="tab-standings" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#1f883d] text-white transition flex items-center gap-1.5 shadow">🏆 Classement</button>
+                    <button onclick="switchTab('draft')" id="tab-draft" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🎯 Draft</button>
+                    <button onclick="switchTab('my-picks')" id="tab-my-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Mes Choix</button>
+                    <button onclick="switchTab('league-picks')" id="tab-league-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Choix de la Ligue</button>
+                    <!-- Le bouton admin est géré dynamiquement par JS -->
+                    <div id="admin-tab-container"></div>
+                </div>
+
+                <select id="week-selector" onchange="changeWeek(this.value)" class="bg-[#21262d] text-white border border-[#30363d] rounded-xl px-4 py-2.5 text-sm focus:outline-none shadow-md font-semibold">
+                    <option value="Week 1" selected>Semaine 1</option>
+                    <option value="Week 2">Semaine 2</option>
+                    <option value="Week 3">Semaine 3</option>
+                    <option value="Week 4">Semaine 4</option>
+                    <option value="Week 5">Semaine 5</option>
+                    <option value="Week 6">Semaine 6</option>
+                    <option value="Week 7">Semaine 7</option>
+                    <option value="Week 8">Semaine 8</option>
+                    <option value="Week 9">Semaine 9</option>
+                    <option value="Week 10">Semaine 10</option>
+                    <option value="Week 11">Semaine 11</option>
+                    <option value="Week 12">Semaine 12</option>
+                    <option value="Week 13">Semaine 13</option>
+                    <option value="Week 14">Semaine 14</option>
+                    <option value="Week 15">Semaine 15</option>
+                    <option value="Week 16">Semaine 16</option>
+                    <option value="Week 17">Semaine 17</option>
+                    <option value="Week 18">Semaine 18</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- VUE 0 : CLASSEMENT -->
+        <div id="view-standings">
+            <div class="card-match rounded-xl overflow-hidden shadow-md">
+                <div class="bg-[#21262d] px-6 py-4 border-b border-[#30363d] flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        📊 Tableau des Meneurs - <span id="standings-week-title">Semaine 1</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-[#161b22] text-gray-400 text-xs border-b border-[#30363d]">
+                                <th class="p-4 font-semibold">Rang</th>
+                                <th class="p-4 font-semibold">Participant</th>
+                                <th class="p-4 font-semibold text-center">Matchs joués</th>
+                                <th class="p-4 font-semibold text-center">Bons vainqueurs</th>
+                                <th class="p-4 font-semibold text-right">Points totaux</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standings-tbody" class="divide-y divide-[#30363d] text-sm">
+                            <tr><td colspan="5" class="p-6 text-center text-gray-400">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE DRAFT -->
+        <div id="view-draft" class="hidden space-y-6">
+            <div class="card-match p-6 rounded-xl bg-[#161b22] border-purple-500/40">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-purple-300">🎯 Choix Repêchage (Fiches de la saison 2025)</h2>
+                        <p class="text-xs text-gray-400 mt-1">Règlement : 2 choix par groupe (A, B, C, D). Victoire = +5, Défaite = -2, Nul = +7.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="groups-grid-container"></div>
+            </div>
+
+            <div class="card-match rounded-xl overflow-hidden shadow-md">
+                <div class="bg-[#21262d] px-6 py-4 border-b border-[#30363d]">
+                    <h3 class="text-md font-bold text-white">📋 Tableau récapitulatif des choix de la ligue</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-[#161b22] text-gray-400 text-xs border-b border-[#30363d]">
+                                <th class="p-4 font-semibold">Participant</th>
+                                <th class="p-4 font-semibold">Groupe A (Jaune)</th>
+                                <th class="p-4 font-semibold">Groupe B (Bleu)</th>
+                                <th class="p-4 font-semibold">Groupe C (Violet)</th>
+                                <th class="p-4 font-semibold">Groupe D (Vert)</th>
+                                <th class="p-4 font-semibold text-right">Points Draft</th>
+                            </tr>
+                        </thead>
+                        <tbody id="draft-picks-tbody" class="divide-y divide-[#30363d] text-sm">
+                            <tr><td colspan="6" class="p-6 text-center text-gray-400">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE ADMIN -->
+        <div id="view-admin-panel" class="hidden space-y-6">
+            <div class="card-match p-6 rounded-xl bg-purple-950/20 border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-purple-300">🎯 Administration - Calcul du Draft</h2>
+                    <p class="text-xs text-gray-300 mt-1">Calcule les points de toutes les équipes sélectionnées.</p>
+                </div>
+                <button onclick="calculateAllDraftPoints()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 rounded-lg shadow transition">
+                    🔄 Calculer tous les points du Draft
+                </button>
+            </div>
+
+            <div class="card-match p-6 rounded-xl bg-blue-950/10 border-blue-500/40">
+                <h2 class="text-xl font-bold text-blue-300 mb-2">👤 Ajouter un nouveau joueur</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <input type="text" id="new-username" placeholder="Identifiant" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none">
+                    <input type="password" id="new-password" placeholder="Mot de passe" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none">
+                    <div class="flex items-center gap-2 bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-2">
+                        <input type="checkbox" id="new-is-admin" class="w-4 h-4 accent-blue-600">
+                        <label for="new-is-admin" class="text-sm text-gray-300">Administrateur</label>
+                    </div>
+                </div>
+                <button onclick="addNewUser()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition shadow">
+                    ➕ Créer le joueur
+                </button>
+            </div>
+
+            <div class="card-match p-6 rounded-xl bg-amber-950/10 border-amber-500/40">
+                <div class="flex justify-between items-center mb-4 pb-4 border-b border-[#30363d]">
+                    <h2 class="text-xl font-bold text-amber-300">⚙️ Administration - Saisie des Scores</h2>
+                    <button onclick="recalculateEntireWeek()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">
+                        🔄 Recalculer toute la semaine
+                    </button>
+                </div>
+                <div id="admin-matches-container" class="space-y-4">
+                    <div class="text-center text-gray-400 p-4">Chargement...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE 1 : MES CHOIX -->
+        <div id="view-my-picks" class="hidden">
+            <div id="survivor-section-card" class="card-match p-5 rounded-xl mb-6 border-blue-500/40 bg-gradient-to-r from-[#161b22] to-[#111827]">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider">🛡️ Option Survivor</div>
+                        <div class="text-sm font-semibold text-white mt-1" id="survivor-instruction">Choisis une équipe pour cette semaine</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select id="survivor-select" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2 text-sm focus:outline-none">
+                            <option value="">-- Choisir une équipe --</option>
+                        </select>
+                        <button onclick="saveSurvivorPick()" id="survivor-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+                            Sauvegarder
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="matches-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
+            </div>
+            <div class="mt-8 flex justify-end" id="save-picks-container">
+                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition">
+                    💾 Enregistrer mes choix de matchs
+                </button>
+            </div>
+        </div>
+
+        <!-- VUE 2 : CHOIX DE LA LIGUE -->
+        <div id="view-league-picks" class="hidden">
+            <div id="league-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SDK Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4kIidjw20wzTBOm0GsdmBv4YLyJL_kZ0",
+            authDomain: "pool-nfl-26f58.firebaseapp.com",
+            projectId: "pool-nfl-26f58",
+            storageBucket: "pool-nfl-26f58.firebasestorage.app",
+            messagingSenderId: "8301929927",
+            appId: "1:8301929927:web:2bff3ce595b3d03b8de5e2"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentWeek = "Week 1";
+        let currentUserId = localStorage.getItem('nfl_pool_user_id');
+        let currentUserProfile = null;
+        let currentTab = 'standings';
+        let allTeamsCache = {};
+
+        window.onload = async function() {
+            if (currentUserId) {
+                await fetchUserProfile(currentUserId);
+                if (currentUserProfile) {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('app-content').classList.remove('hidden');
+                    document.getElementById('display-username').innerText = currentUserId;
+                    
+                    applyAdminUIVisibility();
+                    loadCurrentView();
+                } else {
+                    localStorage.removeItem('nfl_pool_user_id');
+                }
+            }
+        };
+
+        function applyAdminUIVisibility() {
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            const adminBadge = document.getElementById('admin-badge');
+            const adminContainer = document.getElementById('admin-tab-container');
+
+            if (isAdmin) {
+                adminBadge.classList.remove('hidden');
+                adminContainer.innerHTML = `<button onclick="switchTab('admin-panel')" id="tab-admin-panel" class="px-4 py-2 rounded-lg text-xs font-bold ${currentTab === 'admin-panel' ? 'bg-amber-600 text-white' : 'bg-amber-600/30 text-amber-300 hover:bg-amber-600 hover:text-white'} transition border border-amber-500/60 shadow flex items-center gap-1.5">⚙️ Admin</button>`;
+            } else {
+                adminBadge.classList.add('hidden');
+                adminContainer.innerHTML = '';
+                if (currentTab === 'admin-panel') {
+                    currentTab = 'standings';
+                }
+            }
+        }
+
+        async function fetchUserProfile(userId) {
+            try {
+                const userDoc = await db.collection('Users').doc(userId).get();
+                if (userDoc.exists) currentUserProfile = userDoc.data();
+            } catch (error) { console.error("Erreur profil :", error); }
+        }
+
+        async function handleLogin() {
+            const userInput = document.getElementById('username-input').value.trim();
+            const passInput = document.getElementById('password-input').value.trim();
+            if (!userInput || !passInput) { alert("Remplis tous les champs."); return; }
+
+            try {
+                const userDoc = await db.collection('Users').doc(userInput).get();
+                if (!userDoc.exists) {
+                    alert("Utilisateur introuvable.");
+                    return;
+                }
+                const userData = userDoc.data();
+                if (userData.password !== passInput) {
+                    alert("Mot de passe incorrect.");
+                    return;
+                }
+                currentUserId = userInput;
+                currentUserProfile = userData;
+                localStorage.setItem('nfl_pool_user_id', currentUserId);
+
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+                document.getElementById('display-username').innerText = currentUserId;
+                
+                applyAdminUIVisibility();
+                loadCurrentView();
+            } catch (error) { 
+                console.error("Erreur connexion :", error); 
+                alert("Erreur de connexion à la base de données.");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('nfl_pool_user_id');
+            location.reload();
+        }
+
+        function changeWeek(week) {
+            currentWeek = week;
+            const weekText = week.replace('Week ', 'Semaine ');
+            document.getElementById('current-week-title').innerText = weekText;
+            document.getElementById('standings-week-title').innerText = weekText;
+            loadCurrentView();
+        }
+
+        function switchTab(tab) {
+            if (tab === 'admin-panel' && (!currentUserProfile || !currentUserProfile.isAdmin)) return;
+
+            currentTab = tab;
+            
+            // Gestion des classes des onglets standards
+            ['tab-standings', 'tab-draft', 'tab-my-picks', 'tab-league-picks'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (id === `tab-${tab}`) {
+                        el.className = "px-4 py-2 rounded-lg text-xs font-bold bg-[#1f883d] text-white transition flex items-center gap-1.5 shadow";
+                    } else {
+                        el.className = "px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5";
+                    }
+                }
+            });
+
+            // Rafraîchir l'UI admin si présent
+            applyAdminUIVisibility();
+
+            ['view-standings', 'view-draft', 'view-my-picks', 'view-league-picks', 'view-admin-panel'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+
+            loadCurrentView();
+        }
+
+        function loadCurrentView() {
+            if (currentTab === 'standings') loadStandings();
+            else if (currentTab === 'draft') loadDraftView();
+            else if (currentTab === 'admin-panel') {
+                if (currentUserProfile && currentUserProfile.isAdmin) loadAdminMatches();
+                else switchTab('standings');
+            }
+            else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
+            else if (currentTab === 'league-picks') loadLeaguePicks();
+        }
+
+        async function loadDraftView() {
+            const gridContainer = document.getElementById('groups-grid-container');
+            const tbody = document.getElementById('draft-picks-tbody');
+            gridContainer.innerHTML = '<div class="text-gray-400 text-center col-span-4 p-4">Chargement...</div>';
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">Chargement...</td></tr>`;
+
+            try {
+                const teamsSnap = await db.collection('Teams').get();
+                allTeamsCache = {};
+                teamsSnap.forEach(doc => {
+                    const d = doc.data();
+                    let g = (d.group || "A").toString().toUpperCase();
+                    if (g.includes("GROUPE")) g = g.replace("GROUPE", "").trim();
+                    let shortName = doc.id;
+                    allTeamsCache[doc.id] = { id: doc.id, name: d.name || doc.id, shortName: shortName, group: g, record: d.record || "" };
+                });
+
+                const matchSnap = await db.collection('Matches').get();
+                let isLocked = false;
+                const maintenant = new Date();
+                const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+
+                matchSnap.forEach(doc => {
+                    const m = doc.data();
+                    let gDate = m.gameDate && typeof m.gameDate.toDate === 'function' ? m.gameDate.toDate() : (m.gameDate ? new Date(m.gameDate) : null);
+                    if (gDate && maintenant >= gDate) isLocked = true;
+                });
+
+                const userDraftSnap = await db.collection('Draft_Picks').where('username', '==', currentUserId).get();
+                const myChosenTeamsByGroup = { "A": [], "B": [], "C": [], "D": [] };
+
+                userDraftSnap.forEach(doc => {
+                    const data = doc.data();
+                    const teamRef = data.team_id || data.chosen_team_id;
+                    const teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : (teamRef ? teamRef.id : "");
+                    if (teamId && allTeamsCache[teamId]) {
+                        const g = allTeamsCache[teamId].group;
+                        if (myChosenTeamsByGroup[g]) myChosenTeamsByGroup[g].push({ docId: doc.id, teamId: teamId });
+                    }
+                });
+
+                const groups = {
+                    "A": { title: "Groupe A", colorClass: "group-a-bg", headerColor: "text-yellow-400 border-yellow-500/30", teams: [] },
+                    "B": { title: "Groupe B", colorClass: "group-b-bg", headerColor: "text-blue-400 border-blue-500/30", teams: [] },
+                    "C": { title: "Groupe C", colorClass: "group-c-bg", headerColor: "text-purple-400 border-purple-500/30", teams: [] },
+                    "D": { title: "Groupe D", colorClass: "group-d-bg", headerColor: "text-green-400 border-green-500/30", teams: [] }
+                };
+
+                for (const [tId, tData] of Object.entries(allTeamsCache)) {
+                    if (groups[tData.group]) groups[tData.group].teams.push(tData);
+                }
+
+                gridContainer.innerHTML = '';
+                for (const [gKey, gData] of Object.entries(groups)) {
+                    const mySelections = myChosenTeamsByGroup[gKey] || [];
+                    let teamsListHtml = `<div class="space-y-1.5 mb-4 max-h-64 overflow-y-auto pr-1">`;
+                    gData.teams.forEach(team => {
+                        const isChosen = mySelections.some(s => s.teamId === team.id);
+                        teamsListHtml += `
+                            <div class="flex justify-between items-center bg-[#21262d] px-3 py-2 rounded text-xs border border-[#30363d]">
+                                <span class="font-bold text-white">${team.name}</span>
+                                ${(!isLocked || isAdmin) ? `
+                                    <button onclick="${isChosen ? `removeDraftPick('${mySelections.find(s => s.teamId === team.id).docId}')` : `addDraftPick('${team.id}', '${gKey}')`}" 
+                                        class="px-2 py-1 rounded font-bold text-[10px] transition ${isChosen ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}">
+                                        ${isChosen ? 'Retirer' : 'Choisir'}
+                                    </button>` : ''}
+                            </div>`;
+                    });
+                    teamsListHtml += `</div>`;
+
+                    let userBoxHtml = `<div class="space-y-1 mt-2 pt-2 border-t border-[#30363d]">
+                        <div class="text-[11px] font-bold text-gray-400 mb-1">Tes choix (${mySelections.length}/2) :</div>`;
+                    for (let i = 0; i < 2; i++) {
+                        const sel = mySelections[i];
+                        const tName = sel ? (allTeamsCache[sel.teamId] ? allTeamsCache[sel.teamId].name : "---") : "---";
+                        userBoxHtml += `<div class="p-2 rounded font-bold text-center text-xs text-black shadow ${sel ? 'bg-white' : 'bg-gray-700 text-gray-400'}">${tName}</div>`;
+                    }
+                    userBoxHtml += `</div>`;
+
+                    gridContainer.innerHTML += `
+                        <div class="card-match p-4 rounded-xl border ${gData.colorClass}">
+                            <h3 class="font-bold text-sm mb-3 pb-2 border-b ${gData.headerColor}">${gData.title}</h3>
+                            ${teamsListHtml}
+                            ${userBoxHtml}
+                        </div>`;
+                }
+
+                const draftSnap = await db.collection('Draft_Picks').get();
+                const leagueUsers = {};
+                draftSnap.forEach(doc => {
+                    const data = doc.data();
+                    const teamRef = data.team_id || data.chosen_team_id;
+                    const teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : (teamRef ? teamRef.id : "");
+                    const uname = data.username || "Inconnu";
+
+                    if (!leagueUsers[uname]) leagueUsers[uname] = { "A": new Set(), "B": new Set(), "C": new Set(), "D": new Set(), totalPoints: 0 };
+                    if (teamId && allTeamsCache[teamId]) {
+                        const g = allTeamsCache[teamId].group;
+                        if (leagueUsers[uname][g]) leagueUsers[uname][g].add(allTeamsCache[teamId].name);
+                    }
+                    if (data.total_user_points !== undefined) leagueUsers[uname].totalPoints = Number(data.total_user_points) || 0;
+                });
+
+                tbody.innerHTML = '';
+                for (const [uname, uData] of Object.entries(leagueUsers)) {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-[#30363d] hover:bg-[#21262d]/50 transition">
+                            <td class="p-4 font-bold text-blue-400">${uname} ${uname === currentUserId ? '<span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded ml-1">Moi</span>' : ''}</td>
+                            <td class="p-4 text-white">${Array.from(uData["A"]).join(', ') || '-'}</td>
+                            <td class="p-4 text-white">${Array.from(uData["B"]).join(', ') || '-'}</td>
+                            <td class="p-4 text-white">${Array.from(uData["C"]).join(', ') || '-'}</td>
+                            <td class="p-4 text-white">${Array.from(uData["D"]).join(', ') || '-'}</td>
+                            <td class="p-4 text-right font-bold text-purple-400 text-base">${uData.totalPoints} pts</td>
+                        </tr>`;
+                }
+            } catch (error) { console.error("Erreur draft :", error); }
+        }
+
+        async function addDraftPick(teamId, groupKey) {
+            const maintenant = new Date();
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            if (!isAdmin) {
+                const matchSnap = await db.collection('Matches').get();
+                let isLocked = false;
+                matchSnap.forEach(doc => {
+                    const m = doc.data();
+                    let gDate = m.gameDate && typeof m.gameDate.toDate === 'function' ? m.gameDate.toDate() : (m.gameDate ? new Date(m.gameDate) : null);
+                    if (gDate && maintenant >= gDate) isLocked = true;
+                });
+                if (isLocked) { alert("⛔ La saison est commencée, il est impossible de modifier vos choix de draft !"); return; }
+            }
+
+            try {
+                const userDraftSnap = await db.collection('Draft_Picks').where('username', '==', currentUserId).get();
+                let countInGroup = 0;
+                userDraftSnap.forEach(doc => {
+                    const tRef = doc.data().team_id || doc.data().chosen_team_id;
+                    const tId = typeof tRef === 'string' ? tRef.split('/').pop() : (tRef ? tRef.id : "");
+                    if (tId && allTeamsCache[tId] && allTeamsCache[tId].group === groupKey) countInGroup++;
+                });
+
+                if (countInGroup >= 2) { alert(`Maximum de 2 choix atteint pour le Groupe ${groupKey} !`); return; }
+
+                await db.collection('Draft_Picks').add({
+                    user_id: db.collection('Users').doc(currentUserId),
+                    username: currentUserId,
+                    team_id: db.collection('Teams').doc(teamId),
+                    points: 0,
+                    total_user_points: 0,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                loadDraftView();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function removeDraftPick(docId) {
+            const maintenant = new Date();
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            if (!isAdmin) {
+                const matchSnap = await db.collection('Matches').get();
+                let isLocked = false;
+                matchSnap.forEach(doc => {
+                    const m = doc.data();
+                    let gDate = m.gameDate && typeof m.gameDate.toDate === 'function' ? m.gameDate.toDate() : (m.gameDate ? new Date(m.gameDate) : null);
+                    if (gDate && maintenant >= gDate) isLocked = true;
+                });
+                if (isLocked) { alert("⛔ La saison est commencée, il est impossible de modifier vos choix de draft !"); return; }
+            }
+
+            try {
+                await db.collection('Draft_Picks').doc(docId).delete();
+                loadDraftView();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function calculateAllDraftPoints() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            if (!confirm("Lancer le calcul des points du Draft ?")) return;
+            try {
+                const matchesSnap = await db.collection('Matches').get();
+                const teamRecord = {};
+                matchesSnap.forEach(doc => {
+                    const m = doc.data();
+                    const homeScore = m.home_score !== undefined && m.home_score !== "" ? Number(m.home_score) : null;
+                    const awayScore = m.away_score !== undefined && m.away_score !== "" ? Number(m.away_score) : null;
+
+                    if (homeScore !== null && awayScore !== null) {
+                        const homeId = typeof m.home_team_id === 'string' ? m.home_team_id.split('/').pop() : m.home_team_id.id;
+                        const awayId = typeof m.away_team_id === 'string' ? m.away_team_id.split('/').pop() : m.away_team_id.id;
+
+                        if (!teamRecord[homeId]) teamRecord[homeId] = { wins: 0, losses: 0, ties: 0 };
+                        if (!teamRecord[awayId]) teamRecord[awayId] = { wins: 0, losses: 0, ties: 0 };
+
+                        if (homeScore > awayScore) { teamRecord[homeId].wins++; teamRecord[awayId].losses++; }
+                        else if (awayScore > homeScore) { teamRecord[awayId].wins++; teamRecord[awayId].losses++; }
+                        else { teamRecord[homeId].ties++; teamRecord[awayId].ties++; }
+                    }
+                });
+
+                const draftSnap = await db.collection('Draft_Picks').get();
+                const userPicksMap = {};
+                draftSnap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const uname = data.username || "Inconnu";
+                    const teamRef = data.team_id || data.chosen_team_id;
+                    const teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : teamRef?.id;
+
+                    if (!userPicksMap[uname]) userPicksMap[uname] = [];
+                    userPicksMap[uname].push({ ref: docSnap.ref, teamId: teamId });
+                });
+
+                const batch = db.batch();
+                for (const [uname, picks] of Object.entries(userPicksMap)) {
+                    let totalUserPoints = 0;
+                    picks.forEach(pick => {
+                        let teamPts = 0;
+                        if (pick.teamId && teamRecord[pick.teamId]) {
+                            const rec = teamRecord[pick.teamId];
+                            teamPts = (rec.wins * 5) + (rec.losses * -2) + (rec.ties * 7);
+                        }
+                        totalUserPoints += teamPts;
+                    });
+                    picks.forEach(pick => batch.update(pick.ref, { total_user_points: totalUserPoints }));
+                }
+
+                await batch.commit();
+                alert("✅ Calcul effectué !");
+                loadDraftView();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function addNewUser() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const usernameInput = document.getElementById('new-username').value.trim();
+            const passwordInput = document.getElementById('new-password').value.trim();
+            const isAdmin = document.getElementById('new-is-admin').checked;
+
+            if (!usernameInput || !passwordInput) { alert("Remplis les champs."); return; }
+            try {
+                const userRef = db.collection('Users').doc(usernameInput);
+                const docSnap = await userRef.get();
+                if (docSnap.exists) { alert("Existe déjà."); return; }
+                await userRef.set({ password: passwordInput, isAdmin: isAdmin, Survivor: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                alert(`✅ Joueur créé !`);
+                document.getElementById('new-username').value = '';
+                document.getElementById('new-password').value = '';
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function loadSurvivorWidget() {
+            const selectEl = document.getElementById('survivor-select');
+            const cardEl = document.getElementById('survivor-section-card');
+            const instructionEl = document.getElementById('survivor-instruction');
+            const saveBtn = document.getElementById('survivor-save-btn');
+            selectEl.innerHTML = '<option value="">-- Choisir une équipe --</option>';
+
+            try {
+                const userDoc = await db.collection('Users').doc(currentUserId).get();
+                if (userDoc.exists) currentUserProfile = userDoc.data();
+
+                const userRef = db.collection('Users').doc(currentUserId);
+                const survivorSnap = await db.collection('Survivor_Picks').where('user_id', '==', userRef).get();
+                
+                let isEliminated = currentUserProfile && currentUserProfile.Survivor === false;
+                let currentWeekChosenTeamId = "";
+                const usedTeamIds = new Set();
+                let historyHtml = "<div class='mt-3 space-y-1 text-xs text-gray-300'><strong>Historique de tes choix Survivor :</strong>";
+
+                survivorSnap.forEach(doc => {
+                    const data = doc.data();
+                    const teamRef = data.chosen_team_id;
+                    const teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : teamRef?.id;
+                    if (teamId) {
+                        usedTeamIds.add(teamId);
+                        if (data.Week === currentWeek) currentWeekChosenTeamId = teamId;
+                        historyHtml += `<div class='text-gray-400'>- ${data.Week} : ${teamId} (${data.Status || 'En cours'})</div>`;
+                    }
+                });
+                historyHtml += "</div>";
+
+                if (isEliminated) {
+                    cardEl.className = "card-match p-5 rounded-xl mb-6 border-red-500/40 bg-red-950/20";
+                    instructionEl.innerHTML = `❌ <strong class='text-red-400'>Tu as été éliminé du Survivor !</strong><br>Tu ne peux plus faire de nouveaux choix, mais tu peux consulter tes choix passés ci-dessous : ${historyHtml}`;
+                    selectEl.classList.add('hidden');
+                    saveBtn.classList.add('hidden');
+                    return;
+                } else {
+                    cardEl.className = "card-match p-5 rounded-xl mb-6 border-blue-500/40 bg-gradient-to-r from-[#161b22] to-[#111827]";
+                    instructionEl.innerHTML = "Choisis une équipe pour cette semaine (attention : pas le droit de la réutiliser !)";
+                    selectEl.classList.remove('hidden');
+                    saveBtn.classList.remove('hidden');
+                }
+
+                const teamsSnap = await db.collection('Teams').get();
+                teamsSnap.forEach(doc => {
+                    if (!usedTeamIds.has(doc.id) || doc.id === currentWeekChosenTeamId) {
+                        const selected = doc.id === currentWeekChosenTeamId ? 'selected' : '';
+                        selectEl.innerHTML += `<option value="${doc.id}" ${selected}>${doc.data().name || doc.id}</option>`;
+                    }
+                });
+            } catch (error) { console.error("Erreur Survivor :", error); }
+        }
+
+        async function saveSurvivorPick() {
+            const teamId = document.getElementById('survivor-select').value;
+            if (!teamId) { alert("Sélectionne une équipe."); return; }
+            try {
+                const teamRef = db.collection('Teams').doc(teamId);
+                const userRef = db.collection('Users').doc(currentUserId);
+                const querySnap = await db.collection('Survivor_Picks').where('user_id', '==', userRef).where('Week', '==', currentWeek).get();
+
+                if (!querySnap.empty) {
+                    await db.collection('Survivor_Picks').doc(querySnap.docs[0].id).update({ chosen_team_id: teamRef, LastModifiedDate: new Date() });
+                } else {
+                    await db.collection('Survivor_Picks').add({ user_id: userRef, Week: currentWeek, chosen_team_id: teamRef, Status: "En cours", LastModifiedDate: new Date() });
+                }
+                alert("✅ Choix Survivor enregistré !");
+                loadSurvivorWidget();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function loadAdminMatches() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const container = document.getElementById('admin-matches-container');
+            container.innerHTML = '<div class="text-center text-gray-400">Chargement...</div>';
+            try {
+                const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).get();
+                if (snapshot.empty) { container.innerHTML = `<div class="text-center text-gray-400">Aucun match.</div>`; return; }
+                
+                let matchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                matchesList.sort((a, b) => {
+                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                    return dateA - dateB;
+                });
+
+                container.innerHTML = '';
+                const teamCache = {};
+
+                for (const match of matchesList) {
+                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
+                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
+                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
+                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
+
+                    container.innerHTML += `
+                        <div class="card-match p-4 rounded-lg flex flex-col md:flex-row justify-between items-center gap-4 bg-[#161b22]">
+                            <div class="w-full md:w-1/3 flex items-center gap-3">
+                                <div class="flex items-center gap-1">
+                                    <img src="${awayTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                                    <span class="text-white font-semibold text-xs">@</span>
+                                    <img src="${homeTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
+                                    <div class="text-xs text-blue-400">📅 ${dateStr}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input type="number" id="admin_away_${match.id}" value="${match.away_score !== undefined ? match.away_score : ''}" class="w-16 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1" placeholder="Vis">
+                                <input type="number" id="admin_home_${match.id}" value="${match.home_score !== undefined ? match.home_score : ''}" class="w-16 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1" placeholder="Rec">
+                            </div>
+                            <button onclick="saveMatchScore('${match.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded">Enregistrer & Calculer</button>
+                        </div>`;
+                }
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function getTeamInfoCached(teamRef, cache) {
+            let teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : teamRef?.id;
+            if (!teamId) return { id: "", name: "Équipe", shortName: "ÉQ", logo: "" };
+            if (cache[teamId]) return cache[teamId];
+            const doc = await db.collection('Teams').doc(teamId).get();
+            if (doc.exists) {
+                const d = doc.data();
+                const name = d.name || teamId;
+                const shortName = doc.id;
+                cache[teamId] = { id: teamId, name: name, shortName: shortName, logo: d.logoUrl || "" };
+            } else {
+                cache[teamId] = { id: teamId, name: teamId, shortName: teamId, logo: "" };
+            }
+            return cache[teamId];
+        }
+
+        async function saveMatchScore(matchId) {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const awayVal = document.getElementById(`admin_away_${matchId}`).value.trim();
+            const homeVal = document.getElementById(`admin_home_${matchId}`).value.trim();
+            if (awayVal === '' || homeVal === '') { alert("Entrez les deux scores."); return; }
+
+            try {
+                await db.collection('Matches').doc(matchId).update({ away_score: Number(awayVal), home_score: Number(homeVal) });
+                await processWeekCalculations();
+                alert("✅ Score enregistré et calculé !");
+                loadAdminMatches();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function recalculateEntireWeek() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            if (!confirm(`Recalculer toute la semaine ${currentWeek} ?`)) return;
+            try {
+                await processWeekCalculations();
+                alert("✅ Recalcul complet effectué !");
+                loadStandings();
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function processWeekCalculations() {
+            const matchSnapshot = await db.collection('Matches').where('Week', '==', currentWeek).get();
+            const matchesMap = {};
+            matchSnapshot.forEach(doc => { matchesMap[doc.id] = { id: doc.id, ...doc.data() }; });
+
+            const picksSnapshot = await db.collection('Weekly_Picks').where('week', '==', currentWeek).get();
+            const batchPicks = db.batch();
+
+            picksSnapshot.forEach(docSnap => {
+                let picks = docSnap.data().picks || {};
+                let modified = false;
+                for (const [matchId, userPick] of Object.entries(picks)) {
+                    const matchData = matchesMap[matchId];
+                    if (matchData && matchData.home_score !== undefined && matchData.away_score !== undefined && matchData.home_score !== "" && matchData.away_score !== "") {
+                        const homeScore = Number(matchData.home_score), awayScore = Number(matchData.away_score), isBonus = matchData.is_bonus_game;
+                        const homeTeamId = typeof matchData.home_team_id === 'string' ? matchData.home_team_id.split('/').pop() : matchData.home_team_id?.id;
+                        if (userPick.winner) {
+                            const isHome = (userPick.winner === homeTeamId);
+                            const chosenScore = isHome ? homeScore : awayScore, oppScore = isHome ? awayScore : homeScore;
+                            let correctWinner = chosenScore > oppScore, realDiff = Math.abs(homeScore - awayScore), correctSpread = false;
+                            if (correctWinner && userPick.spread) {
+                                if (userPick.spread === '-') correctSpread = (realDiff < 7.5);
+                                else if (userPick.spread === '+') correctSpread = (realDiff >= 7.5);
+                            }
+                            let points = 0;
+                            if (correctWinner) points += 1;
+                            if (correctSpread) points += 1;
+                            if (isBonus) points *= 2;
+                            userPick.points = points;
+                            modified = true;
+                        }
+                    }
+                }
+                if (modified) batchPicks.update(docSnap.ref, { picks: picks });
+            });
+            await batchPicks.commit();
+
+            const survivorSnap = await db.collection('Survivor_Picks').where('Week', '==', currentWeek).get();
+            for (const sDoc of survivorSnap.docs) {
+                const sData = sDoc.data();
+                const userRef = sData.user_id;
+                const chosenTeamRef = sData.chosen_team_id;
+                const chosenTeamId = typeof chosenTeamRef === 'string' ? chosenTeamRef.split('/').pop() : chosenTeamRef?.id;
+
+                if (userRef && chosenTeamId) {
+                    for (const m of Object.values(matchesMap)) {
+                        const hId = typeof m.home_team_id === 'string' ? m.home_team_id.split('/').pop() : m.home_team_id?.id;
+                        const aId = typeof m.away_team_id === 'string' ? m.away_team_id.split('/').pop() : m.away_team_id?.id;
+
+                        if ((hId === chosenTeamId || aId === chosenTeamId) && m.home_score !== undefined && m.away_score !== undefined && m.home_score !== "" && m.away_score !== "") {
+                            const hScore = Number(m.home_score);
+                            const aScore = Number(m.away_score);
+                            if (hScore !== aScore) {
+                                const didWin = (hId === chosenTeamId && hScore > aScore) || (aId === chosenTeamId && aScore > hScore);
+                                if (!didWin) {
+                                    await userRef.update({ Survivor: false });
+                                    await sDoc.ref.update({ Status: "Éliminé" });
+                                } else {
+                                    await sDoc.ref.update({ Status: "Qualifié" });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        async function loadMatches() {
+            const container = document.getElementById('matches-container');
+            container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement...</div>';
+            try {
+                const pickDocId = `${currentUserId}_${currentWeek}`;
+                const existingPickDoc = await db.collection('Weekly_Picks').doc(pickDocId).get();
+                const existingPicks = existingPickDoc.exists ? existingPickDoc.data().picks || {} : {};
+
+                const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).get();
+                if (snapshot.empty) { container.innerHTML = `<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match.</div>`; return; }
+
+                let matchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                matchesList.sort((a, b) => {
+                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                    return dateA - dateB;
+                });
+
+                container.innerHTML = '';
+                const teamCache = {};
+                const maintenant = new Date();
+                const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+
+                for (const match of matchesList) {
+                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
+                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
+                    const matchPick = existingPicks[match.id] || {};
+                    const isBonus = match.is_bonus_game === true;
+
+                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
+                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
+                    
+                    let matchStarted = dateObj && maintenant >= dateObj;
+                    let isMatchLocked = matchStarted && !isAdmin;
+
+                    container.innerHTML += `
+                        <div class="card-match p-5 rounded-xl ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/10' : ''}" id="card_${match.id}" data-match-id="${match.id}" data-locked="${isMatchLocked}">
+                            ${isBonus ? '<div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1">⭐ MATCH BONUS (Rapporte 4 points)</div>' : ''}
+                            ${isMatchLocked ? '<div class="text-[11px] font-bold text-red-400 mb-2">🔒 Match commencé - Choix verrouillé</div>' : ''}
+                            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div class="w-full md:w-1/3">
+                                    <div class="text-white font-bold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
+                                    <div class="text-xs text-blue-400 mt-0.5">📅 ${dateStr}</div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectWinner('${match.id}', '${awayTeam.id}', this)" class="team-btn-${match.id} flex items-center gap-2 px-4 py-2 rounded-lg ${matchPick.winner === awayTeam.id ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-sm border border-[#30363d]">
+                                        <img src="${awayTeam.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
+                                        <span>${awayTeam.name}</span>
+                                    </button>
+                                    <span>at</span>
+                                    <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectWinner('${match.id}', '${homeTeam.id}', this)" class="team-btn-${match.id} flex items-center gap-2 px-4 py-2 rounded-lg ${matchPick.winner === homeTeam.id ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-sm border border-[#30363d]">
+                                        <img src="${homeTeam.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
+                                        <span>${homeTeam.name}</span>
+                                    </button>
+                                </div>
+                                <div class="flex gap-1.5">
+                                    <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectSpread('${match.id}', '+', this)" class="spread-btn-${match.id} px-3 py-1.5 rounded-lg ${matchPick.spread === '+' ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-xs border border-[#30363d]">+</button>
+                                    <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectSpread('${match.id}', '-', this)" class="spread-btn-${match.id} px-3 py-1.5 rounded-lg ${matchPick.spread === '-' ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-xs border border-[#30363d]">-</button>
+                                </div>
+                            </div>
+                        </div>`;
+                    document.getElementById(`card_${match.id}`).dataset.winner = matchPick.winner || "";
+                    document.getElementById(`card_${match.id}`).dataset.spread = matchPick.spread || "";
+                }
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        function selectWinner(matchId, teamId, btn) {
+            const card = document.getElementById(`card_${matchId}`);
+            if (card.dataset.locked === "true") return;
+            document.querySelectorAll(`.team-btn-${matchId}`).forEach(b => { if(!b.disabled) { b.classList.remove('bg-[#1f883d]'); b.classList.add('bg-[#21262d]'); } });
+            btn.classList.remove('bg-[#21262d]'); btn.classList.add('bg-[#1f883d]');
+            card.dataset.winner = teamId;
+        }
+
+        function selectSpread(matchId, spreadValue, btn) {
+            const card = document.getElementById(`card_${matchId}`);
+            if (card.dataset.locked === "true") return;
+            document.querySelectorAll(`.spread-btn-${matchId}`).forEach(b => { if(!b.disabled) { b.classList.remove('bg-[#1f883d]'); b.classList.add('bg-[#21262d]'); } });
+            btn.classList.remove('bg-[#21262d]'); btn.classList.add('bg-[#1f883d]');
+            card.dataset.spread = spreadValue;
+        }
+
+        async function savePicks() {
+            try {
+                const cards = document.querySelectorAll('[id^="card_"]');
+                let picksObj = {};
+                cards.forEach(card => {
+                    picksObj[card.dataset.matchId] = { winner: card.dataset.winner || "", spread: card.dataset.spread || "" };
+                });
+                await db.collection('Weekly_Picks').doc(`${currentUserId}_${currentWeek}`).set({
+                    username: currentUserId, week: currentWeek, picks: picksObj, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert("✅ Choix enregistrés !");
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
+        async function loadLeaguePicks() {
+            const container = document.getElementById('league-container');
+            container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
+            try {
+                const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
+                if (matchesSnap.empty) {
+                    container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match pour cette semaine.</div>';
+                    return;
+                }
+
+                let matchesList = matchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                matchesList.sort((a, b) => {
+                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                    return dateA - dateB;
+                });
+
+                const picksSnap = await db.collection('Weekly_Picks').where('week', '==', currentWeek).get();
+                const allPicks = [];
+                picksSnap.forEach(doc => allPicks.push(doc.data()));
+
+                const teamCache = {};
+                container.innerHTML = '';
+
+                let matchCounter = 1;
+                for (const match of matchesList) {
+                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
+                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
+                    
+                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
+                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
+                    
+                    const hasScore = match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "";
+                    const scoreStr = hasScore ? `Score : ${match.away_score} - ${match.home_score}` : "Score : en attente";
+                    const isBonus = match.is_bonus_game === true;
+
+                    let winnerBadgeHtml = '';
+                    if (hasScore) {
+                        const homeScore = Number(match.home_score);
+                        const awayScore = Number(match.away_score);
+                        let winningTeamId = null;
+                        if (homeScore > awayScore) winningTeamId = typeof match.home_team_id === 'string' ? match.home_team_id.split('/').pop() : match.home_team_id?.id;
+                        else if (awayScore > homeScore) winningTeamId = typeof match.away_team_id === 'string' ? match.away_team_id.split('/').pop() : match.away_team_id?.id;
+
+                        if (winningTeamId) {
+                            const winTeamInfo = await getTeamInfoCached(winningTeamId, teamCache);
+                            let realDiff = Math.abs(homeScore - awayScore);
+                            let spreadSymbol = realDiff >= 7.5 ? '+' : '-';
+                            winnerBadgeHtml = `<span class="bg-[#1f883d] text-white px-2.5 py-1 rounded-md text-xs font-bold shadow">${winTeamInfo.shortName}${spreadSymbol}</span>`;
+                        } else {
+                            winnerBadgeHtml = `<span class="bg-gray-700 text-gray-300 px-2 py-1 rounded-md text-xs font-bold">Nul</span>`;
+                        }
+                    }
+
+                    let rowsHtml = '';
+
+                    for (const userPickDoc of allPicks) {
+                        const uname = userPickDoc.username;
+                        const matchPick = (userPickDoc.picks && userPickDoc.picks[match.id]) || {};
+                        const pickedTeamId = matchPick.winner;
+                        const spreadVal = matchPick.spread || "+";
+                        const pts = matchPick.points !== undefined ? matchPick.points : null;
+
+                        let teamDisplayStr = "Aucun choix";
+                        let pickedTeamLogo = "";
+                        if (pickedTeamId) {
+                            const tInfo = await getTeamInfoCached(pickedTeamId, teamCache);
+                            teamDisplayStr = `${tInfo.shortName}${spreadVal}`;
+                            pickedTeamLogo = tInfo.logo;
+                        }
+
+                        let rowBgColor = "bg-[#161b22]";
+                        let borderColor = "border-l-4 border-gray-600";
+                        let ptsColor = "text-gray-400";
+                        let ptsText = pts !== null ? `${pts} pt${pts > 1 ? 's' : ''}` : "-";
+
+                        if (pts !== null) {
+                            if (pts === 0) {
+                                rowBgColor = "bg-red-950/20";
+                                borderColor = "border-l-4 border-red-500";
+                                ptsColor = "text-red-400";
+                            } else if (pts === 1 || (isBonus && pts === 2)) {
+                                rowBgColor = "bg-amber-950/20";
+                                borderColor = "border-l-4 border-amber-500";
+                                ptsColor = "text-amber-400";
+                            } else {
+                                rowBgColor = "bg-green-950/20";
+                                borderColor = "border-l-4 border-green-500";
+                                ptsColor = "text-green-400";
+                            }
+                        }
+
+                        rowsHtml += `
+                            <div class="${rowBgColor} ${borderColor} p-3 rounded-lg flex justify-between items-center mb-2">
+                                <div class="font-bold text-sm text-blue-400 w-32">${uname}</div>
+                                <div class="flex items-center gap-2 flex-1 justify-center">
+                                    <img src="${pickedTeamLogo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
+                                    <span class="text-white text-xs font-semibold">${teamDisplayStr}</span>
+                                </div>
+                                <div class="font-bold text-xs ${ptsColor} w-20 text-right">${ptsText}</div>
+                            </div>`;
+                    }
+
+                    container.innerHTML += `
+                        <div class="card-match p-4 rounded-xl shadow-md mb-4 ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/5' : ''}">
+                            <div class="flex flex-col md:flex-row justify-between items-center mb-3 pb-2 border-b border-[#30363d] text-xs gap-2">
+                                <div class="flex items-center gap-3">
+                                    ${winnerBadgeHtml}
+                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS (4 pts) | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="bg-[#21262d] px-2.5 py-1 rounded text-gray-300 border border-[#30363d] font-semibold">${scoreStr}</span>
+                                    <span class="text-blue-400">📅 ${dateStr}</span>
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                ${rowsHtml || '<div class="text-gray-500 text-xs italic">Aucun choix enregistré pour ce match.</div>'}
+                            </div>
+                        </div>`;
+                    matchCounter++;
+                }
+            } catch (error) {
+                console.error("Erreur choix de la ligue :", error);
+                container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-red-400">Erreur lors du chargement.</div>';
+            }
+        }
+
+        async function loadStandings() {
+            const tbody = document.getElementById('standings-tbody');
+            tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">Calcul en cours...</td></tr>`;
+            try {
+                const picksSnapshot = await db.collection('Weekly_Picks').where('week', '==', currentWeek).get();
+                const allUsersPicks = {}; 
+                picksSnapshot.forEach(doc => { allUsersPicks[doc.data().username] = doc.data().picks || {}; });
+
+                const usersSnapshot = await db.collection('Users').get();
+                const userStats = [];
+
+                usersSnapshot.forEach(doc => {
+                    const uname = doc.id;
+                    const userPicks = allUsersPicks[uname] || {};
+                    let totalPoints = 0, correctWinnersCount = 0, matchesPlayed = 0;
+                    for (const pickData of Object.values(userPicks)) {
+                        if (pickData && pickData.winner) {
+                            matchesPlayed++;
+                            if (pickData.points !== undefined) {
+                                totalPoints += Number(pickData.points);
+                                if (pickData.points > 0) correctWinnersCount++;
+                            }
+                        }
+                    }
+                    userStats.push({ username: uname, matchesPlayed, correctWinners: correctWinnersCount, points: totalPoints });
+                });
+
+                userStats.sort((a, b) => b.points - a.points);
+                tbody.innerHTML = '';
+                userStats.forEach((stat, index) => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-[#30363d] hover:bg-[#21262d]/50 transition">
+                            <td class="p-4 text-gray-400">#${index + 1}</td>
+                            <td class="p-4 text-white">${stat.username}</td>
+                            <td class="p-4 text-center text-gray-300">${stat.matchesPlayed}</td>
+                            <td class="p-4 text-center text-gray-300">${stat.correctWinners}</td>
+                            <td class="p-4 text-right font-bold text-green-400 text-base">${stat.points} pts</td>
+                        </tr>`;
+                });
+            } catch (error) { console.error("Erreur :", error); }
+        }
+    </script>
+</body>
+</html>
