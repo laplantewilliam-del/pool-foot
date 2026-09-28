@@ -205,8 +205,13 @@
             <div id="matches-container" class="space-y-4">
                 <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
             </div>
-            <div class="mt-8 flex justify-end" id="save-picks-container">
-                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition">
+            
+            <!-- BOUTONS ENREGISTRER ET EXPORTER CSV -->
+            <div class="mt-8 flex justify-end gap-3" id="save-picks-container">
+                <button onclick="exportPicksCSV()" class="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition text-sm">
+                    📄 Créer un fichier CSV
+                </button>
+                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition text-sm">
                     💾 Enregistrer mes choix de matchs
                 </button>
             </div>
@@ -472,7 +477,6 @@
             }
         }
 
-        // --- CHARGEMENT DES 6 BLOCS DE L'ACCUEIL ---
         async function loadHomeStats() {
             try {
                 const picksSnapshot = await db.collection('Weekly_Picks').get();
@@ -508,18 +512,13 @@
                         if (p.points !== undefined) {
                             const pts = Number(p.points) || 0;
                             weekPts += pts;
-                            // Un point de spread réussi rapporte au moins 1 pt bonus ou 2 si bonus (si correctWinner et correctSpread)
-                            // On vérifie si spread exact est réussi
-                            if (p.spread && pts >= 2) {
-                                correctSpreads++;
-                            }
+                            if (p.spread && pts >= 2) correctSpreads++;
                         }
                     }
                     userWeeklyPoints[uname][week] = weekPts;
                     if (spreadStats[uname] !== undefined) spreadStats[uname] += correctSpreads;
                 });
 
-                // Calculs cumulés pour la F1 race et totaux
                 for (const uname of Object.keys(userWeeklyPoints)) {
                     let runningTotal = 0;
                     weeksList.forEach((w, idx) => {
@@ -530,7 +529,6 @@
                     leagueTotalPoints[uname] = runningTotal;
                 }
 
-                // 1. Graphique Utilisateur
                 const userPicksData = weeksList.map(w => (userWeeklyPoints[currentUserId] && userWeeklyPoints[currentUserId][w]) ? userWeeklyPoints[currentUserId][w] : 0);
                 const ctxUser = document.getElementById('userStatsChart').getContext('2d');
                 if (userChartInstance) userChartInstance.destroy();
@@ -543,7 +541,6 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
                 });
 
-                // 2. Graphique Ligue (Barres)
                 const sortedLeague = Object.entries(leagueTotalPoints).sort((a, b) => b[1] - a[1]);
                 const ctxLeague = document.getElementById('leagueStatsChart').getContext('2d');
                 if (leagueChartInstance) leagueChartInstance.destroy();
@@ -556,16 +553,9 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
                 });
 
-                // 3. Graphique Course Multi-joueurs (Race Chart)
                 const raceDatasets = Object.entries(userCumulativeRace).map(([uname, dataArr], idx) => {
                     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-                    return {
-                        label: uname,
-                        data: dataArr,
-                        borderColor: colors[idx % colors.length],
-                        borderWidth: uname === currentUserId ? 3 : 1.5,
-                        tension: 0.2
-                    };
+                    return { label: uname, data: dataArr, borderColor: colors[idx % colors.length], borderWidth: uname === currentUserId ? 3 : 1.5, tension: 0.2 };
                 });
                 const ctxRace = document.getElementById('raceChart').getContext('2d');
                 if (raceChartInstance) raceChartInstance.destroy();
@@ -575,13 +565,11 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 10 } } } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
                 });
 
-                // 4. Tableau Survivor Global
                 const survivorSnap = await db.collection('Survivor_Picks').get();
                 const survivorMap = {};
                 survivorSnap.forEach(doc => {
                     const d = doc.data();
                     const uRef = d.user_id;
-                    // Retrouver le nom du user
                     let uname = "Inconnu";
                     usersSnapshot.forEach(uDoc => { if (uDoc.ref.id === uRef.id || uDoc.ref.path === uRef.path) uname = uDoc.id; });
                     if (!survivorMap[uname]) survivorMap[uname] = [];
@@ -605,7 +593,6 @@
                         </tr>`;
                 });
 
-                // 5. Tableau Popularité / Contre la Vague (pour currentWeek)
                 const popContainer = document.getElementById('home-popularity-container');
                 const matchesMap = {};
                 matchesSnapshot.forEach(mDoc => {
@@ -649,7 +636,6 @@
                     popContainer.innerHTML = `<div class="text-center text-gray-400 text-xs p-4">Aucun match pour ${currentWeek}.</div>`;
                 }
 
-                // 6. Tableau Précision des Spreads
                 const spreadTbody = document.getElementById('home-spread-tbody');
                 const sortedSpreads = Object.entries(spreadStats).sort((a, b) => b[1] - a[1]);
                 spreadTbody.innerHTML = '';
@@ -861,7 +847,7 @@
                         if (!teamRecord[awayId]) teamRecord[awayId] = { wins: 0, losses: 0, ties: 0 };
 
                         if (homeScore > awayScore) { teamRecord[homeId].wins++; teamRecord[awayId].losses++; }
-                        else if (awayScore > homeScore) { teamRecord[awayId].wins++; teamRecord[awayId].losses++; }
+                        else if (awayScore > homeScore) { teamRecord[awayId].wins++; teamRecord[homeId].losses++; }
                         else { teamRecord[homeId].ties++; teamRecord[awayId].ties++; }
                     }
                 });
@@ -1237,6 +1223,38 @@
                 });
                 alert("✅ Choix enregistrés !");
             } catch (error) { console.error("Erreur :", error); }
+        }
+
+        // --- EXPORTATION DES CHOIX EN FICHIER CSV ---
+        function exportPicksCSV() {
+            const cards = document.querySelectorAll('[id^="card_"]');
+            if (cards.length === 0) {
+                alert("Aucun match affiché à exporter.");
+                return;
+            }
+
+            let csvRows = [];
+            cards.forEach(card => {
+                const teamId = card.dataset.winner || "";
+                const spread = card.dataset.spread || "";
+                // Format demandé : ID de l'équipe (provenant de Teams) suivi du spread (ex: DET-)
+                const line = teamId ? `${teamId}${spread}` : "";
+                csvRows.push(line);
+            });
+
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const weekFormatted = currentWeek.replace(' ', '-');
+            const filename = `choix_${currentUserId}_${weekFormatted}.csv`;
+
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         async function loadLeaguePicks() {
