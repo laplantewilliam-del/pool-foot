@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pool NFL - Admin & Grille</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; }
         .card-match { background-color: #161b22; border: 1px solid #30363d; }
@@ -48,10 +49,11 @@
             
             <div class="flex items-center gap-3 flex-wrap">
                 <div class="flex bg-[#161b22] p-1.5 rounded-xl border border-[#30363d] gap-1.5 items-center flex-wrap shadow-md">
-                    <button onclick="switchTab('standings')" id="tab-standings" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#1f883d] text-white transition flex items-center gap-1.5 shadow">🏆 Classement</button>
-                    <button onclick="switchTab('draft')" id="tab-draft" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🎯 Draft</button>
-                    <button onclick="switchTab('my-picks')" id="tab-my-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Mes Choix</button>
+                    <button onclick="switchTab('home')" id="tab-home" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#1f883d] text-white transition flex items-center gap-1.5 shadow">🏠 Accueil</button>
+                    <button onclick="switchTab('my-picks')" id="tab-my-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🎯 Mes Choix</button>
+                    <button onclick="switchTab('standings')" id="tab-standings" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🏆 Classement</button>
                     <button onclick="switchTab('league-picks')" id="tab-league-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Choix de la Ligue</button>
+                    <button onclick="switchTab('draft')" id="tab-draft" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">📋 Draft</button>
                     <!-- Le bouton admin est géré dynamiquement par JS -->
                     <div id="admin-tab-container"></div>
                 </div>
@@ -79,8 +81,139 @@
             </div>
         </header>
 
-        <!-- VUE 0 : CLASSEMENT -->
-        <div id="view-standings">
+        <!-- VUE ACCUEIL & 6 TABLEAUX / GRAPHIQUES -->
+        <div id="view-home" class="space-y-6">
+            <div class="card-match p-6 rounded-xl bg-gradient-to-r from-[#161b22] to-[#1f242d] border border-[#30363d]">
+                <h2 class="text-xl font-bold text-white mb-1">👋 Tableau de bord de la Ligue, <span id="welcome-username" class="text-blue-400"></span></h2>
+                <p class="text-xs text-gray-400">Retrouve ci-dessous les analyses, statistiques avancées et le suivi de la compétition.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 1. Graphique Utilisateur -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-blue-400 mb-1">📊 1. Tes Performances (Points par Semaine)</h3>
+                        <p class="text-xs text-gray-400 mb-4">Évolution de tes points cumulés au fil des semaines.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="userStatsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 2. Graphique Ligue -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-green-400 mb-1">🏆 2. Comparatif Total de la Ligue</h3>
+                        <p class="text-xs text-gray-400 mb-4">Classement des points totaux des participants.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="leagueStatsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 3. Graphique Évolution multi-joueurs (Course F1) -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-purple-400 mb-1">📈 3. Course au Titre (Évolution de la Ligue)</h3>
+                        <p class="text-xs text-gray-400 mb-4">Comparaison de la progression de tous les joueurs semaine après semaine.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="raceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 4. Tableau Survivor Global -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-amber-400 mb-1">🛡️ 4. Suivi Global du Survivor</h3>
+                        <p class="text-xs text-gray-400 mb-3">Statut actuel des participants et équipes choisies.</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-[#30363d]">
+                                    <th class="p-2">Joueur</th>
+                                    <th class="p-2 text-center">Statut</th>
+                                    <th class="p-2">Historique / Semaine actuelle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="home-survivor-tbody" class="divide-y divide-[#30363d]">
+                                <tr><td colspan="3" class="p-4 text-center text-gray-400">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 5. Tableau Popularité / Contre la Vague -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-cyan-400 mb-1">🎯 5. Popularité des Choix ("Contre la Vague")</h3>
+                        <p class="text-xs text-gray-400 mb-3">Pour la semaine sélectionnée, qui a choisi quelle équipe ?</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto" id="home-popularity-container">
+                        <div class="text-center text-gray-400 text-xs p-4">Chargement...</div>
+                    </div>
+                </div>
+
+                <!-- 6. Classement Spread -->
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-pink-400 mb-1">⭐️ 6. Maîtrise des Spreads (+ / -)</h3>
+                        <p class="text-xs text-gray-400 mb-3">Classement des meilleurs prédicteurs d'écarts de la ligue.</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-[#30363d]">
+                                    <th class="p-2">Rang</th>
+                                    <th class="p-2">Participant</th>
+                                    <th class="p-2 text-center">Bons Spreads réussis</th>
+                                </tr>
+                            </thead>
+                            <tbody id="home-spread-tbody" class="divide-y divide-[#30363d]">
+                                <tr><td colspan="3" class="p-4 text-center text-gray-400">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE 1 : MES CHOIX -->
+        <div id="view-my-picks" class="hidden">
+            <div id="survivor-section-card" class="card-match p-5 rounded-xl mb-6 border-blue-500/40 bg-gradient-to-r from-[#161b22] to-[#111827]">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider">🛡️ Option Survivor</div>
+                        <div class="text-sm font-semibold text-white mt-1" id="survivor-instruction">Choisis une équipe pour cette semaine</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select id="survivor-select" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2 text-sm focus:outline-none">
+                            <option value="">-- Choisir une équipe --</option>
+                        </select>
+                        <button onclick="saveSurvivorPick()" id="survivor-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+                            Sauvegarder
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="matches-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
+            </div>
+            <div class="mt-8 flex justify-end" id="save-picks-container">
+                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition">
+                    💾 Enregistrer mes choix de matchs
+                </button>
+            </div>
+        </div>
+
+        <!-- VUE CLASSEMENT -->
+        <div id="view-standings" class="hidden">
             <div class="card-match rounded-xl overflow-hidden shadow-md">
                 <div class="bg-[#21262d] px-6 py-4 border-b border-[#30363d] flex justify-between items-center">
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
@@ -103,6 +236,13 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- VUE CHOIX DE LA LIGUE -->
+        <div id="view-league-picks" class="hidden">
+            <div id="league-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
             </div>
         </div>
 
@@ -181,42 +321,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- VUE 1 : MES CHOIX -->
-        <div id="view-my-picks" class="hidden">
-            <div id="survivor-section-card" class="card-match p-5 rounded-xl mb-6 border-blue-500/40 bg-gradient-to-r from-[#161b22] to-[#111827]">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div>
-                        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider">🛡️ Option Survivor</div>
-                        <div class="text-sm font-semibold text-white mt-1" id="survivor-instruction">Choisis une équipe pour cette semaine</div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <select id="survivor-select" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2 text-sm focus:outline-none">
-                            <option value="">-- Choisir une équipe --</option>
-                        </select>
-                        <button onclick="saveSurvivorPick()" id="survivor-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
-                            Sauvegarder
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="matches-container" class="space-y-4">
-                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
-            </div>
-            <div class="mt-8 flex justify-end" id="save-picks-container">
-                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition">
-                    💾 Enregistrer mes choix de matchs
-                </button>
-            </div>
-        </div>
-
-        <!-- VUE 2 : CHOIX DE LA LIGUE -->
-        <div id="view-league-picks" class="hidden">
-            <div id="league-container" class="space-y-4">
-                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
-            </div>
-        </div>
     </div>
 
     <!-- SDK Firebase Compat -->
@@ -239,8 +343,11 @@
         let currentWeek = "Week 1";
         let currentUserId = localStorage.getItem('nfl_pool_user_id');
         let currentUserProfile = null;
-        let currentTab = 'standings';
+        let currentTab = 'home';
         let allTeamsCache = {};
+        let userChartInstance = null;
+        let leagueChartInstance = null;
+        let raceChartInstance = null;
 
         window.onload = async function() {
             if (currentUserId) {
@@ -249,6 +356,7 @@
                     document.getElementById('login-screen').classList.add('hidden');
                     document.getElementById('app-content').classList.remove('hidden');
                     document.getElementById('display-username').innerText = currentUserId;
+                    document.getElementById('welcome-username').innerText = currentUserId;
                     
                     applyAdminUIVisibility();
                     loadCurrentView();
@@ -270,7 +378,7 @@
                 adminBadge.classList.add('hidden');
                 adminContainer.innerHTML = '';
                 if (currentTab === 'admin-panel') {
-                    currentTab = 'standings';
+                    currentTab = 'home';
                 }
             }
         }
@@ -305,6 +413,7 @@
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
                 document.getElementById('display-username').innerText = currentUserId;
+                document.getElementById('welcome-username').innerText = currentUserId;
                 
                 applyAdminUIVisibility();
                 loadCurrentView();
@@ -332,8 +441,7 @@
 
             currentTab = tab;
             
-            // Gestion des classes des onglets standards
-            ['tab-standings', 'tab-draft', 'tab-my-picks', 'tab-league-picks'].forEach(id => {
+            ['tab-home', 'tab-my-picks', 'tab-standings', 'tab-league-picks', 'tab-draft'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     if (id === `tab-${tab}`) {
@@ -344,24 +452,219 @@
                 }
             });
 
-            // Rafraîchir l'UI admin si présent
             applyAdminUIVisibility();
 
-            ['view-standings', 'view-draft', 'view-my-picks', 'view-league-picks', 'view-admin-panel'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            ['view-home', 'view-my-picks', 'view-standings', 'view-league-picks', 'view-draft', 'view-admin-panel'].forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById(`view-${tab}`).classList.remove('hidden');
 
             loadCurrentView();
         }
 
         function loadCurrentView() {
-            if (currentTab === 'standings') loadStandings();
+            if (currentTab === 'home') loadHomeStats();
+            else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
+            else if (currentTab === 'standings') loadStandings();
+            else if (currentTab === 'league-picks') loadLeaguePicks();
             else if (currentTab === 'draft') loadDraftView();
             else if (currentTab === 'admin-panel') {
                 if (currentUserProfile && currentUserProfile.isAdmin) loadAdminMatches();
-                else switchTab('standings');
+                else switchTab('home');
             }
-            else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
-            else if (currentTab === 'league-picks') loadLeaguePicks();
+        }
+
+        // --- CHARGEMENT DES 6 BLOCS DE L'ACCUEIL ---
+        async function loadHomeStats() {
+            try {
+                const picksSnapshot = await db.collection('Weekly_Picks').get();
+                const usersSnapshot = await db.collection('Users').get();
+                const matchesSnapshot = await db.collection('Matches').get();
+
+                const weeksList = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10', 'Week 11', 'Week 12', 'Week 13', 'Week 14', 'Week 15', 'Week 16', 'Week 17', 'Week 18'];
+                
+                const userWeeklyPoints = {};
+                const leagueTotalPoints = {};
+                const userCumulativeRace = {};
+                const spreadStats = {};
+
+                usersSnapshot.forEach(doc => {
+                    const uname = doc.id;
+                    userWeeklyPoints[uname] = {};
+                    leagueTotalPoints[uname] = 0;
+                    userCumulativeRace[uname] = Array(weeksList.length).fill(0);
+                    spreadStats[uname] = 0;
+                });
+
+                picksSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const uname = data.username;
+                    const week = data.week || 'Week 1';
+                    const picks = data.picks || {};
+
+                    if (!userWeeklyPoints[uname]) userWeeklyPoints[uname] = {};
+                    let weekPts = 0;
+                    let correctSpreads = 0;
+
+                    for (const p of Object.values(picks)) {
+                        if (p.points !== undefined) {
+                            const pts = Number(p.points) || 0;
+                            weekPts += pts;
+                            // Un point de spread réussi rapporte au moins 1 pt bonus ou 2 si bonus (si correctWinner et correctSpread)
+                            // On vérifie si spread exact est réussi
+                            if (p.spread && pts >= 2) {
+                                correctSpreads++;
+                            }
+                        }
+                    }
+                    userWeeklyPoints[uname][week] = weekPts;
+                    if (spreadStats[uname] !== undefined) spreadStats[uname] += correctSpreads;
+                });
+
+                // Calculs cumulés pour la F1 race et totaux
+                for (const uname of Object.keys(userWeeklyPoints)) {
+                    let runningTotal = 0;
+                    weeksList.forEach((w, idx) => {
+                        const wPts = userWeeklyPoints[uname][w] || 0;
+                        runningTotal += wPts;
+                        userCumulativeRace[uname][idx] = runningTotal;
+                    });
+                    leagueTotalPoints[uname] = runningTotal;
+                }
+
+                // 1. Graphique Utilisateur
+                const userPicksData = weeksList.map(w => (userWeeklyPoints[currentUserId] && userWeeklyPoints[currentUserId][w]) ? userWeeklyPoints[currentUserId][w] : 0);
+                const ctxUser = document.getElementById('userStatsChart').getContext('2d');
+                if (userChartInstance) userChartInstance.destroy();
+                userChartInstance = new Chart(ctxUser, {
+                    type: 'line',
+                    data: {
+                        labels: weeksList.map(w => w.replace('Week ', 'S.')),
+                        datasets: [{ label: 'Mes Points', data: userPicksData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.3 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
+                });
+
+                // 2. Graphique Ligue (Barres)
+                const sortedLeague = Object.entries(leagueTotalPoints).sort((a, b) => b[1] - a[1]);
+                const ctxLeague = document.getElementById('leagueStatsChart').getContext('2d');
+                if (leagueChartInstance) leagueChartInstance.destroy();
+                leagueChartInstance = new Chart(ctxLeague, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedLeague.length > 0 ? sortedLeague.map(i => i[0]) : ['Aucun'],
+                        datasets: [{ label: 'Points', data: sortedLeague.length > 0 ? sortedLeague.map(i => i[1]) : [0], backgroundColor: sortedLeague.map(i => i[0] === currentUserId ? '#1f883d' : '#8b5cf6'), borderRadius: 6 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
+                });
+
+                // 3. Graphique Course Multi-joueurs (Race Chart)
+                const raceDatasets = Object.entries(userCumulativeRace).map(([uname, dataArr], idx) => {
+                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+                    return {
+                        label: uname,
+                        data: dataArr,
+                        borderColor: colors[idx % colors.length],
+                        borderWidth: uname === currentUserId ? 3 : 1.5,
+                        tension: 0.2
+                    };
+                });
+                const ctxRace = document.getElementById('raceChart').getContext('2d');
+                if (raceChartInstance) raceChartInstance.destroy();
+                raceChartInstance = new Chart(ctxRace, {
+                    type: 'line',
+                    data: { labels: weeksList.map(w => w.replace('Week ', 'S.')), datasets: raceDatasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 10 } } } }, scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }, y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' }, beginAtZero: true } } }
+                });
+
+                // 4. Tableau Survivor Global
+                const survivorSnap = await db.collection('Survivor_Picks').get();
+                const survivorMap = {};
+                survivorSnap.forEach(doc => {
+                    const d = doc.data();
+                    const uRef = d.user_id;
+                    // Retrouver le nom du user
+                    let uname = "Inconnu";
+                    usersSnapshot.forEach(uDoc => { if (uDoc.ref.id === uRef.id || uDoc.ref.path === uRef.path) uname = uDoc.id; });
+                    if (!survivorMap[uname]) survivorMap[uname] = [];
+                    survivorMap[uname].push({ week: d.Week, team: typeof d.chosen_team_id === 'string' ? d.chosen_team_id.split('/').pop() : d.chosen_team_id?.id, status: d.Status || 'En cours' });
+                });
+
+                const survivorTbody = document.getElementById('home-survivor-tbody');
+                survivorTbody.innerHTML = '';
+                usersSnapshot.forEach(uDoc => {
+                    const uname = uDoc.id;
+                    const uData = uDoc.data();
+                    const isAlive = uData.Survivor !== false;
+                    const history = survivorMap[uname] || [];
+                    let historyStr = history.map(h => `${h.week}: <b>${h.team}</b> (${h.status})`).join(', ') || 'Aucun choix';
+
+                    survivorTbody.innerHTML += `
+                        <tr class="border-b border-[#30363d]">
+                            <td class="p-2 font-bold text-blue-400">${uname}</td>
+                            <td class="p-2 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isAlive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${isAlive ? '🟢 En lice' : '🔴 Éliminé'}</span></td>
+                            <td class="p-2 text-gray-300 text-[11px]">${historyStr}</td>
+                        </tr>`;
+                });
+
+                // 5. Tableau Popularité / Contre la Vague (pour currentWeek)
+                const popContainer = document.getElementById('home-popularity-container');
+                const matchesMap = {};
+                matchesSnapshot.forEach(mDoc => {
+                    const m = mDoc.data();
+                    if (m.Week === currentWeek) matchesMap[mDoc.id] = m;
+                });
+
+                const teamCachePop = {};
+                popContainer.innerHTML = '';
+                for (const [mId, mData] of Object.entries(matchesMap)) {
+                    const awayT = await getTeamInfoCached(mData.away_team_id, teamCachePop);
+                    const homeT = await getTeamInfoCached(mData.home_team_id, teamCachePop);
+                    
+                    let awayCount = 0, homeCount = 0;
+                    picksSnapshot.forEach(pDoc => {
+                        const pData = pDoc.data();
+                        if (pData.week === currentWeek && pData.picks && pData.picks[mId]) {
+                            const chosen = pData.picks[mId].winner;
+                            if (chosen === awayT.id) awayCount++;
+                            if (chosen === homeT.id) homeCount++;
+                        }
+                    });
+                    const total = awayCount + homeCount;
+                    const awayPct = total > 0 ? Math.round((awayCount / total) * 100) : 0;
+                    const homePct = total > 0 ? Math.round((homeCount / total) * 100) : 0;
+
+                    popContainer.innerHTML += `
+                        <div class="mb-3 bg-[#21262d] p-3 rounded-lg border border-[#30363d]">
+                            <div class="flex justify-between text-xs font-bold text-white mb-1">
+                                <span>${awayT.name} (${awayCount} choix - ${awayPct}%)</span>
+                                <span>vs</span>
+                                <span>${homeT.name} (${homeCount} choix - ${homePct}%)</span>
+                            </div>
+                            <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden flex">
+                                <div class="bg-blue-500 h-full" style="width: ${awayPct}%"></div>
+                                <div class="bg-green-500 h-full" style="width: ${homePct}%"></div>
+                            </div>
+                        </div>`;
+                }
+                if (Object.keys(matchesMap).length === 0) {
+                    popContainer.innerHTML = `<div class="text-center text-gray-400 text-xs p-4">Aucun match pour ${currentWeek}.</div>`;
+                }
+
+                // 6. Tableau Précision des Spreads
+                const spreadTbody = document.getElementById('home-spread-tbody');
+                const sortedSpreads = Object.entries(spreadStats).sort((a, b) => b[1] - a[1]);
+                spreadTbody.innerHTML = '';
+                sortedSpreads.forEach(([uname, count], idx) => {
+                    spreadTbody.innerHTML += `
+                        <tr class="border-b border-[#30363d]">
+                            <td class="p-2 text-gray-400">#${idx + 1}</td>
+                            <td class="p-2 font-bold text-white">${uname}</td>
+                            <td class="p-2 text-center font-bold text-pink-400">${count} spread(s)</td>
+                        </tr>`;
+                });
+
+            } catch (error) {
+                console.error("Erreur chargement statistiques accueil :", error);
+            }
         }
 
         async function loadDraftView() {
