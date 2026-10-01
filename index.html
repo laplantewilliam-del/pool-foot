@@ -1140,20 +1140,35 @@
                 if (snapshot.empty) { container.innerHTML = `<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match.</div>`; return; }
 
                 let matchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                matchesList.sort((a, b) => {
-                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
-                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
-                    return dateA - dateB;
-                });
 
                 container.innerHTML = '';
                 const teamCache = {};
                 const maintenant = new Date();
                 const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
 
+                // Pré-chargement des équipes pour le tri alphabétique du receveur
                 for (const match of matchesList) {
-                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
-                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
+                    match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
+                    match._awayTeamObj = await getTeamInfoCached(match.away_team_id, teamCache);
+                }
+
+                // Tri par date/heure puis ordre alphabétique du receveur
+                matchesList.sort((a, b) => {
+                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                    
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateA - dateB;
+                    }
+                    
+                    let homeNameA = a._homeTeamObj.name || "";
+                    let homeNameB = b._homeTeamObj.name || "";
+                    return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
+                });
+
+                for (const match of matchesList) {
+                    const awayTeam = match._awayTeamObj;
+                    const homeTeam = match._homeTeamObj;
                     const matchPick = existingPicks[match.id] || {};
                     const isBonus = match.is_bonus_game === true;
 
