@@ -1273,131 +1273,136 @@
         }
 
         async function loadLeaguePicks() {
-            const container = document.getElementById('league-container');
-            container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
-            try {
-                const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
-                if (matchesSnap.empty) {
-                    container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match pour cette semaine.</div>';
-                    return;
-                }
+    const week = document.getElementById('weekSelectLeaguePicks').value;
+    const container = document.getElementById('leaguePicksContainer');
+    
+    container.innerHTML = '<div class="text-center w-100 py-4"><div class="spinner-border text-primary" role="status"></div></div>';
 
-                let matchesList = matchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                matchesList.sort((a, b) => {
-                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
-                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
-                    return dateA - dateB;
-                });
+    if (!week) {
+        container.innerHTML = '<p class="text-muted text-center w-100 py-3">Veuillez sélectionner une semaine.</p>';
+        return;
+    }
 
-                const picksSnap = await db.collection('Weekly_Picks').where('week', '==', currentWeek).get();
-                const allPicks = [];
-                picksSnap.forEach(doc => allPicks.push(doc.data()));
+    try {
+        // 1. Récupération des données (Poolers, Choix et Matchs)
+        const [usersSnap, picksSnap, matchesSnap] = await Promise.all([
+            getDocs(collection(db, 'users')),
+            getDocs(query(collection(db, 'picks'), where('week', '==', parseInt(week)))),
+            getDocs(query(collection(db, 'matches'), where('week', '==', parseInt(week))))
+        ]);
 
-                const teamCache = {};
-                container.innerHTML = '';
-
-                let matchCounter = 1;
-                for (const match of matchesList) {
-                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
-                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
-                    
-                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
-                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
-                    
-                    const hasScore = match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "";
-                    const scoreStr = hasScore ? `Score : ${match.away_score} - ${match.home_score}` : "Score : en attente";
-                    const isBonus = match.is_bonus_game === true;
-
-                    let winnerBadgeHtml = '';
-                    if (hasScore) {
-                        const homeScore = Number(match.home_score);
-                        const awayScore = Number(match.away_score);
-                        let winningTeamId = null;
-                        if (homeScore > awayScore) winningTeamId = typeof match.home_team_id === 'string' ? match.home_team_id.split('/').pop() : match.home_team_id?.id;
-                        else if (awayScore > homeScore) winningTeamId = typeof match.away_team_id === 'string' ? match.away_team_id.split('/').pop() : match.away_team_id?.id;
-
-                        if (winningTeamId) {
-                            const winTeamInfo = await getTeamInfoCached(winningTeamId, teamCache);
-                            let realDiff = Math.abs(homeScore - awayScore);
-                            let spreadSymbol = realDiff >= 7.5 ? '+' : '-';
-                            winnerBadgeHtml = `<span class="bg-[#1f883d] text-white px-2.5 py-1 rounded-md text-xs font-bold shadow">${winTeamInfo.shortName}${spreadSymbol}</span>`;
-                        } else {
-                            winnerBadgeHtml = `<span class="bg-gray-700 text-gray-300 px-2 py-1 rounded-md text-xs font-bold">Nul</span>`;
-                        }
-                    }
-
-                    let rowsHtml = '';
-
-                    for (const userPickDoc of allPicks) {
-                        const uname = userPickDoc.username;
-                        const matchPick = (userPickDoc.picks && userPickDoc.picks[match.id]) || {};
-                        const pickedTeamId = matchPick.winner;
-                        const spreadVal = matchPick.spread || "+";
-                        const pts = matchPick.points !== undefined ? matchPick.points : null;
-
-                        let teamDisplayStr = "Aucun choix";
-                        let pickedTeamLogo = "";
-                        if (pickedTeamId) {
-                            const tInfo = await getTeamInfoCached(pickedTeamId, teamCache);
-                            teamDisplayStr = `${tInfo.shortName}${spreadVal}`;
-                            pickedTeamLogo = tInfo.logo;
-                        }
-
-                        let rowBgColor = "bg-[#161b22]";
-                        let borderColor = "border-l-4 border-gray-600";
-                        let ptsColor = "text-gray-400";
-                        let ptsText = pts !== null ? `${pts} pt${pts > 1 ? 's' : ''}` : "-";
-
-                        if (pts !== null) {
-                            if (pts === 0) {
-                                rowBgColor = "bg-red-950/20";
-                                borderColor = "border-l-4 border-red-500";
-                                ptsColor = "text-red-400";
-                            } else if (pts === 1 || (isBonus && pts === 2)) {
-                                rowBgColor = "bg-amber-950/20";
-                                borderColor = "border-l-4 border-amber-500";
-                                ptsColor = "text-amber-400";
-                            } else {
-                                rowBgColor = "bg-green-950/20";
-                                borderColor = "border-l-4 border-green-500";
-                                ptsColor = "text-green-400";
-                            }
-                        }
-
-                        rowsHtml += `
-                            <div class="${rowBgColor} ${borderColor} p-3 rounded-lg flex justify-between items-center mb-2">
-                                <div class="font-bold text-sm text-blue-400 w-32">${uname}</div>
-                                <div class="flex items-center gap-2 flex-1 justify-center">
-                                    <img src="${pickedTeamLogo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
-                                    <span class="text-white text-xs font-semibold">${teamDisplayStr}</span>
-                                </div>
-                                <div class="font-bold text-xs ${ptsColor} w-20 text-right">${ptsText}</div>
-                            </div>`;
-                    }
-
-                    container.innerHTML += `
-                        <div class="card-match p-4 rounded-xl shadow-md mb-4 ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/5' : ''}">
-                            <div class="flex flex-col md:flex-row justify-between items-center mb-3 pb-2 border-b border-[#30363d] text-xs gap-2">
-                                <div class="flex items-center gap-3">
-                                    ${winnerBadgeHtml}
-                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS (4 pts) | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="bg-[#21262d] px-2.5 py-1 rounded text-gray-300 border border-[#30363d] font-semibold">${scoreStr}</span>
-                                    <span class="text-blue-400">📅 ${dateStr}</span>
-                                </div>
-                            </div>
-                            <div class="space-y-1">
-                                ${rowsHtml || '<div class="text-gray-500 text-xs italic">Aucun choix enregistré pour ce match.</div>'}
-                            </div>
-                        </div>`;
-                    matchCounter++;
-                }
-            } catch (error) {
-                console.error("Erreur choix de la ligue :", error);
-                container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-red-400">Erreur lors du chargement.</div>';
-            }
+        if (matchesSnap.empty) {
+            container.innerHTML = '<p class="text-muted text-center w-100 py-3">Aucun match trouvé pour cette semaine.</p>';
+            return;
         }
+
+        // Transformer les documents de matchs en tableau
+        let matchesList = matchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 2. Pré-charger les informations d'équipes pour le tri
+        const teamCache = {};
+        for (const match of matchesList) {
+            match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
+            match._awayTeamObj = await getTeamInfoCached(match.away_team_id, teamCache);
+        }
+
+        // 3. Trier les matchs : Date/Heure puis ordre alphabétique de l'équipe hôte
+        matchesList.sort((a, b) => {
+            let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+            let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+            
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA - dateB;
+            }
+            
+            let homeNameA = a._homeTeamObj.name || "";
+            let homeNameB = b._homeTeamObj.name || "";
+            return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
+        });
+
+        // 4. Mappage des utilisateurs et de leurs choix
+        const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const picksByMatchAndUser = {};
+
+        picksSnap.forEach(doc => {
+            const pick = doc.data();
+            if (!picksByMatchAndUser[pick.match_id]) {
+                picksByMatchAndUser[pick.match_id] = {};
+            }
+            picksByMatchAndUser[pick.match_id][pick.user_id] = pick;
+        });
+
+        // 5. Génération du HTML
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col" style="min-width: 200px;">Match</th>
+                            ${users.map(u => `<th scope="col" class="text-center">${u.displayName || u.email}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        for (const match of matchesList) {
+            // Réutilisation des équipes pré-chargées
+            const awayTeam = match._awayTeamObj;
+            const homeTeam = match._homeTeamObj;
+
+            html += `
+                <tr>
+                    <td class="fw-bold">
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="${awayTeam.logo}" alt="${awayTeam.name}" style="width: 24px; height: 24px; object-fit: contain;">
+                            <span>${awayTeam.name}</span>
+                            <span class="text-muted fs-7">@</span>
+                            <img src="${homeTeam.logo}" alt="${homeTeam.name}" style="width: 24px; height: 24px; object-fit: contain;">
+                            <span>${homeTeam.name}</span>
+                        </div>
+                    </td>
+            `;
+
+            users.forEach(user => {
+                const userPick = picksByMatchAndUser[match.id]?.[user.id];
+                let cellContent = '-';
+
+                if (userPick) {
+                    const pickedTeam = userPick.picked_team_id === awayTeam.id ? awayTeam : homeTeam;
+                    const isCorrect = match.winner_id && match.winner_id === userPick.picked_team_id;
+                    const isWrong = match.winner_id && match.winner_id !== userPick.picked_team_id;
+
+                    let badgeClass = 'bg-secondary';
+                    if (isCorrect) badgeClass = 'bg-success';
+                    if (isWrong) badgeClass = 'bg-danger';
+
+                    cellContent = `
+                        <span class="badge ${badgeClass} d-inline-flex align-items-center gap-1 p-2">
+                            <img src="${pickedTeam.logo}" alt="${pickedTeam.name}" style="width: 18px; height: 18px; object-fit: contain;">
+                            ${pickedTeam.name}
+                        </span>
+                    `;
+                }
+
+                html += `<td class="text-center">${cellContent}</td>`;
+            });
+
+            html += `</tr>`;
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error("Erreur lors du chargement des choix de la ligue :", error);
+        container.innerHTML = '<div class="alert alert-danger" role="alert">Erreur lors du chargement des choix de la ligue.</div>';
+    }
+}
 
         async function loadStandings() {
             const tbody = document.getElementById('standings-tbody');
