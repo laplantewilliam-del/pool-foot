@@ -6,6 +6,7 @@
     <title>Pool NFL - Admin & Grille</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; }
         .card-match { background-color: #161b22; border: 1px solid #30363d; }
@@ -246,6 +247,11 @@
 
         <!-- VUE CHOIX DE LA LIGUE -->
         <div id="view-league-picks" class="hidden">
+            <div class="flex justify-end mb-4">
+    <button onclick="exportLeaguePicksCard()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all">
+        📸 Télécharger la Carte Messenger
+    </button>
+</div>
             <div id="league-container" class="space-y-4">
                 <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
             </div>
@@ -1271,7 +1277,80 @@
             link.click();
             document.body.removeChild(link);
         }
+async function exportLeaguePicksCard() {
+    const originalContainer = document.getElementById('league-container') || document.getElementById('leaguePicksContainer');
+    if (!originalContainer || originalContainer.children.length === 0) {
+        alert("Aucun choix à exporter !");
+        return;
+    }
 
+    // Sélection de la semaine pour le titre
+    const weekSelect = document.getElementById('week-selector');
+    const weekVal = weekSelect ? weekSelect.value : (typeof currentWeek !== 'undefined' ? currentWeek : '');
+    const weekNum = String(weekVal).replace(/\D/g, '') || '1';
+
+    // 1. Création d'un conteneur temporaire masqué pour construire la carte compacte
+    const exportWrapper = document.createElement('div');
+    exportWrapper.style.position = 'absolute';
+    exportWrapper.style.left = '-9999px';
+    exportWrapper.style.top = '-9999px';
+    exportWrapper.style.width = '750px'; // Largeur optimale pour téléphone / Messenger
+    exportWrapper.style.backgroundColor = '#0d1117';
+    exportWrapper.style.padding = '24px';
+    exportWrapper.style.color = '#ffffff';
+    exportWrapper.style.fontFamily = 'sans-serif';
+
+    // Entête de la carte
+    let exportHtml = `
+        <div style="text-align: center; margin-bottom: 20px; border-b: 2px solid #30363d; padding-bottom: 12px;">
+            <h2 style="font-size: 24px; font-weight: bold; margin: 0; color: #58a6ff;">🏈 POOL NFL - SEMAINE ${weekNum}</h2>
+            <p style="font-size: 13px; color: #8b949e; margin-top: 4px;">Carte récapitulative des choix de la ligue</p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+    `;
+
+    // 2. Duplication et adaptation des cartes de match pour un format compact
+    const matchCards = originalContainer.querySelectorAll('.card-match');
+    matchCards.forEach(card => {
+        exportHtml += `
+            <div style="background-color: #161b22; border: 1fr solid #30363d; border-radius: 10px; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                ${card.innerHTML}
+            </div>
+        `;
+    });
+
+    exportHtml += `</div>`;
+    exportWrapper.innerHTML = exportHtml;
+    document.body.appendChild(exportWrapper);
+
+    // Nettoyage visuel de la capture (masquer les images cassées si nécessaire)
+    const images = exportWrapper.querySelectorAll('img');
+    images.forEach(img => {
+        img.crossOrigin = 'anonymous';
+    });
+
+    try {
+        // 3. Capture avec html2canvas
+        const canvas = await html2canvas(exportWrapper, {
+            backgroundColor: '#0d1117',
+            scale: 2, // Haute résolution
+            useCORS: true
+        });
+
+        // 4. Téléchargement automatique de l'image PNG
+        const link = document.createElement('a');
+        link.download = `Pool_NFL_Semaine_${weekNum}_Choix.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+    } catch (err) {
+        console.error("Erreur lors de la génération de l'image :", err);
+        alert("Impossible de générer l'image. Assurez-vous que html2canvas est bien chargé.");
+    } finally {
+        // Nettoyage de l'élément temporaire
+        document.body.removeChild(exportWrapper);
+    }
+}
         async function loadLeaguePicks() {
     const container = document.getElementById('league-container');
     container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
