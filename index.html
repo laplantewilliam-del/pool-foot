@@ -1352,11 +1352,8 @@ async function exportLeaguePicksCard() {
     }
 }
         async function loadLeaguePicks() {
-    const container = document.getElementById('league-container') || document.getElementById('leaguePicksContainer');
-    if (!container) return;
-
+    const container = document.getElementById('league-container');
     container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
-
     try {
         const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
         if (matchesSnap.empty) {
@@ -1368,11 +1365,13 @@ async function exportLeaguePicksCard() {
 
         const teamCache = {};
 
+        // 1. Pré-chargement des équipes pour le tri
         for (const match of matchesList) {
             match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
             match._awayTeamObj = await getTeamInfoCached(match.away_team_id, teamCache);
         }
 
+        // 2. Tri identique à "Mes Choix" (Date/Heure puis ordre alphabétique de l'équipe hôte)
         matchesList.sort((a, b) => {
             let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
             let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
