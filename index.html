@@ -1351,6 +1351,149 @@ async function exportLeaguePicksCard() {
         document.body.removeChild(exportWrapper);
     }
 }
+        async function loadLeaguePicks() {
+    const container = document.getElementById('league-container') || document.getElementById('leaguePicksContainer');
+    if (!container) return;
+
+    container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
+
+    try {
+        const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
+        if (matchesSnap.empty) {
+            container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match pour cette semaine.</div>';
+            return;
+        }
+
+        let matchesList = matchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const teamCache = {};
+
+        for (const match of matchesList) {
+            match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
+            match._awayTeamObj = await getTeamInfoCached(match.away_team_id, teamCache);
+        }
+
+        matchesList.sort((a, b) => {
+            let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+            let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+            
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA - dateB;
+            }
+            
+            let homeNameA = a._homeTeamObj.name || "";
+            let homeNameB = b._homeTeamObj.name || "";
+            return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
+        });
+
+        const picksSnap = await db.collection('Weekly_Picks').where('week', '==', currentWeek).get();
+        const allPicks = [];
+        picksSnap.forEach(doc => allPicks.push(doc.data()));
+
+        container.innerHTML = '';
+
+        let matchCounter = 1;
+        for (const match of matchesList) {
+            const awayTeam = match._awayTeamObj;
+            const homeTeam = match._homeTeamObj;
+            
+            let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
+            let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
+            
+            const hasScore = match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "";
+            const scoreStr = hasScore ? `Score : ${match.away_score} - ${match.home_score}` : "Score : en attente";
+            const isBonus = match.is_bonus_game === true;
+
+            let winnerBadgeHtml = '';
+            if (hasScore) {
+                const homeScore = Number(match.home_score);
+                const awayScore = Number(match.away_score);
+                let winningTeamId = null;
+                if (homeScore > awayScore) winningTeamId = typeof match.home_team_id === 'string' ? match.home_team_id.split('/').pop() : match.home_team_id?.id;
+                else if (awayScore > homeScore) winningTeamId = typeof match.away_team_id === 'string' ? match.away_team_id.split('/').pop() : match.away_team_id?.id;
+
+                if (winningTeamId) {
+                    const winTeamInfo = await getTeamInfoCached(winningTeamId, teamCache);
+                    let realDiff = Math.abs(homeScore - awayScore);
+                    let spreadSymbol = realDiff >= 7.5 ? '+' : '-';
+                    winnerBadgeHtml = `<span class="bg-[#1f883d] text-white px-2.5 py-1 rounded-md text-xs font-bold shadow">${winTeamInfo.shortName}${spreadSymbol}</span>`;
+                } else {
+                    winnerBadgeHtml = `<span class="bg-gray-700 text-gray-300 px-2 py-1 rounded-md text-xs font-bold">Nul</span>`;
+                }
+            }
+
+            let rowsHtml = '';
+
+            for (const userPickDoc of allPicks) {
+                const uname = userPickDoc.username;
+                const matchPick = (userPickDoc.picks && userPickDoc.picks[match.id]) || {};
+                const pickedTeamId = matchPick.winner;
+                const spreadVal = matchPick.spread || "+";
+                const pts = matchPick.points !== undefined ? matchPick.points : null;
+
+                let teamDisplayStr = "Aucun choix";
+                let pickedTeamLogo = "";
+                if (pickedTeamId) {
+                    const tInfo = await getTeamInfoCached(pickedTeamId, teamCache);
+                    teamDisplayStr = `${tInfo.shortName}${spreadVal}`;
+                    pickedTeamLogo = tInfo.logo;
+                }
+
+                let rowBgColor = "bg-[#161b22]";
+                let borderColor = "border-l-4 border-gray-600";
+                let ptsColor = "text-gray-400";
+                let ptsText = pts !== null ? `${pts} pt${pts > 1 ? 's' : ''}` : "-";
+
+                if (pts !== null) {
+                    if (pts === 0) {
+                        rowBgColor = "bg-red-950/20";
+                        borderColor = "border-l-4 border-red-500";
+                        ptsColor = "text-red-400";
+                    } else if (pts === 1 || (isBonus && pts === 2)) {
+                        rowBgColor = "bg-amber-950/20";
+                        borderColor = "border-l-4 border-amber-500";
+                        ptsColor = "text-amber-400";
+                    } else {
+                        rowBgColor = "bg-green-950/20";
+                        borderColor = "border-l-4 border-green-500";
+                        ptsColor = "text-green-400";
+                    }
+                }
+
+                rowsHtml += `
+                    <div class="${rowBgColor} ${borderColor} p-3 rounded-lg flex justify-between items-center mb-2">
+                        <div class="font-bold text-sm text-blue-400 w-32">${uname}</div>
+                        <div class="flex items-center gap-2 flex-1 justify-center">
+                            <img src="${pickedTeamLogo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
+                            <span class="text-white text-xs font-semibold">${teamDisplayStr}</span>
+                        </div>
+                        <div class="font-bold text-xs ${ptsColor} w-20 text-right">${ptsText}</div>
+                    </div>`;
+            }
+
+            container.innerHTML += `
+                <div class="card-match p-4 rounded-xl shadow-md mb-4 ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/5' : ''}">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-3 pb-2 border-b border-[#30363d] text-xs gap-2">
+                        <div class="flex items-center gap-3">
+                            ${winnerBadgeHtml}
+                            <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS (4 pts) | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="bg-[#21262d] px-2.5 py-1 rounded text-gray-300 border border-[#30363d] font-semibold">${scoreStr}</span>
+                            <span class="text-blue-400">📅 ${dateStr}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        ${rowsHtml || '<div class="text-gray-500 text-xs italic">Aucun choix enregistré pour ce match.</div>'}
+                    </div>
+                </div>`;
+            matchCounter++;
+        }
+    } catch (error) {
+        console.error("Erreur choix de la ligue :", error);
+        container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-red-400">Erreur lors du chargement.</div>';
+    }
+}
         async function loadStandings() {
             const tbody = document.getElementById('standings-tbody');
             tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">Calcul en cours...</td></tr>`;
