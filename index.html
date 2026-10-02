@@ -1294,26 +1294,26 @@ async function exportLeaguePicksCard() {
     exportWrapper.style.position = 'absolute';
     exportWrapper.style.left = '-9999px';
     exportWrapper.style.top = '-9999px';
-    exportWrapper.style.width = '750px'; // Largeur optimale pour téléphone / Messenger
+    exportWrapper.style.width = '1100px'; // Élargi pour accueillir 3 colonnes confortablement
     exportWrapper.style.backgroundColor = '#0d1117';
     exportWrapper.style.padding = '24px';
     exportWrapper.style.color = '#ffffff';
     exportWrapper.style.fontFamily = 'sans-serif';
 
-    // Entête de la carte
+    // Entête et grille sur 3 colonnes
     let exportHtml = `
-        <div style="text-align: center; margin-bottom: 20px; border-b: 2px solid #30363d; padding-bottom: 12px;">
-            <h2 style="font-size: 24px; font-weight: bold; margin: 0; color: #58a6ff;">🏈 POOL NFL - SEMAINE ${weekNum}</h2>
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #30363d; padding-bottom: 12px;">
+            <h2 style="font-size: 26px; font-weight: bold; margin: 0; color: #58a6ff;">🏈 POOL NFL - SEMAINE ${weekNum}</h2>
             <p style="font-size: 13px; color: #8b949e; margin-top: 4px;">Carte récapitulative des choix de la ligue</p>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
     `;
 
-    // 2. Duplication et adaptation des cartes de match pour un format compact
+    // 2. Duplication des cartes de match
     const matchCards = originalContainer.querySelectorAll('.card-match');
     matchCards.forEach(card => {
         exportHtml += `
-            <div style="background-color: #161b22; border: 1fr solid #30363d; border-radius: 10px; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                 ${card.innerHTML}
             </div>
         `;
@@ -1323,7 +1323,7 @@ async function exportLeaguePicksCard() {
     exportWrapper.innerHTML = exportHtml;
     document.body.appendChild(exportWrapper);
 
-    // Nettoyage visuel de la capture (masquer les images cassées si nécessaire)
+    // Configuration des images pour CORS
     const images = exportWrapper.querySelectorAll('img');
     images.forEach(img => {
         img.crossOrigin = 'anonymous';
@@ -1337,7 +1337,7 @@ async function exportLeaguePicksCard() {
             useCORS: true
         });
 
-        // 4. Téléchargement automatique de l'image PNG
+        // 4. Téléchargement de l'image
         const link = document.createElement('a');
         link.download = `Pool_NFL_Semaine_${weekNum}_Choix.png`;
         link.href = canvas.toDataURL('image/png');
@@ -1347,7 +1347,6 @@ async function exportLeaguePicksCard() {
         console.error("Erreur lors de la génération de l'image :", err);
         alert("Impossible de générer l'image. Assurez-vous que html2canvas est bien chargé.");
     } finally {
-        // Nettoyage de l'élément temporaire
         document.body.removeChild(exportWrapper);
     }
 }
