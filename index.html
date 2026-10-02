@@ -1286,13 +1286,13 @@
 
         const teamCache = {};
 
-        // 1. Pré-chargement des équipes pour le tri alphabétique du receveur
+        // 1. Pré-chargement des équipes pour le tri
         for (const match of matchesList) {
             match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
             match._awayTeamObj = await getTeamInfoCached(match.away_team_id, teamCache);
         }
 
-        // 2. Tri par date/heure puis ordre alphabétique de l'équipe hôte (comme dans Mes Choix)
+        // 2. Tri identique à "Mes Choix" (Date/Heure puis ordre alphabétique de l'équipe hôte)
         matchesList.sort((a, b) => {
             let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
             let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
@@ -1314,7 +1314,6 @@
 
         let matchCounter = 1;
         for (const match of matchesList) {
-            // Réutilisation des équipes pré-chargées lors du tri
             const awayTeam = match._awayTeamObj;
             const homeTeam = match._homeTeamObj;
             
@@ -1415,7 +1414,6 @@
         container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-red-400">Erreur lors du chargement.</div>';
     }
 }
-
         async function loadStandings() {
             const tbody = document.getElementById('standings-tbody');
             tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">Calcul en cours...</td></tr>`;
