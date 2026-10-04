@@ -295,6 +295,15 @@
 
         <!-- VUE ADMIN -->
         <div id="view-admin-panel" class="hidden space-y-6">
+            <div class="card-match p-6 rounded-xl bg-green-950/10 border-green-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-green-300">🔢 Administration - Générer le SortOrder</h2>
+                    <p class="text-xs text-gray-300 mt-1">Trie automatiquement tous les matchs et assigne un champ 'sortOrder' (1 à N) pour chaque semaine.</p>
+                </div>
+                <button onclick="generateSortOrderForMatches()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-5 py-3 rounded-lg shadow transition">
+                    ⚡ Générer les SortOrder
+                </button>
+            </div>
             <div class="card-match p-6 rounded-xl bg-purple-950/20 border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 class="text-lg font-bold text-purple-300">🎯 Administration - Calcul du Draft</h2>
@@ -658,7 +667,65 @@
                 console.error("Erreur chargement statistiques accueil :", error);
             }
         }
+async function generateSortOrderForMatches() {
+    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+    if (!confirm("Voulez-vous générer et assigner le champ 'sortOrder' pour tous les matchs de toutes les semaines ?")) return;
 
+    try {
+        const matchesSnap = await db.collection('Matches').get();
+        if (matchesSnap.empty) {
+            alert("Aucun match trouvé dans Firestore.");
+            return;
+        }
+
+        // Grouper les matchs par semaine
+        const weeksMap = {};
+        matchesSnap.forEach(doc => {
+            const data = doc.data();
+            const week = data.Week || "Week 1";
+            if (!weeksMap[week]) weeksMap[week] = [];
+            weeksMap[week].push({ id: doc.id, ref: doc.ref, ...data });
+        });
+
+        const teamCache = {};
+        const batch = db.batch();
+        let updatedCount = 0;
+
+        for (const [week, matchesList] of Object.entries(weeksMap)) {
+            // Pré-charger les infos des équipes pour chaque match de la semaine
+            for (const match of matchesList) {
+                match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
+            }
+
+            // Trier par date/heure, puis par nom d'équipe hôte (alphabétique)
+            matchesList.sort((a, b) => {
+                let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+                
+                let homeNameA = a._homeTeamObj.name || "";
+                let homeNameB = b._homeTeamObj.name || "";
+                return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
+            });
+
+            // Assigner un sortOrder de 1 à N pour cette semaine
+            matchesList.forEach((match, index) => {
+                const sortOrder = index + 1;
+                batch.update(match.ref, { sortOrder: sortOrder });
+                updatedCount++;
+            });
+        }
+
+        await batch.commit();
+        alert(`✅ ${updatedCount} matchs mis à jour avec succès avec leur champ 'sortOrder' !`);
+    } catch (error) {
+        console.error("Erreur lors de la génération des sortOrder :", error);
+        alert("Une erreur est survenue lors de la génération.");
+    }
+}
         async function loadDraftView() {
             const gridContainer = document.getElementById('groups-grid-container');
             const tbody = document.getElementById('draft-picks-tbody');
