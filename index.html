@@ -312,6 +312,9 @@
                 <button onclick="calculateAllDraftPoints()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 rounded-lg shadow transition">
                     🔄 Calculer tous les points du Draft
                 </button>
+                <button onclick="calculateDraftPointsForWeek()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded">
+    Calculer les points de la Draft
+</button>
             </div>
 
             <div class="card-match p-6 rounded-xl bg-blue-950/10 border-blue-500/40">
@@ -1590,6 +1593,74 @@ async function exportLeaguePicksCard() {
                 });
             } catch (error) { console.error("Erreur :", error); }
         }
+        async function calculateDraftPointsForWeek() {
+    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+    try {
+        // 1. Récupérer tous les matchs de la semaine en cours (currentWeek est une chaîne ex: "Week 1")
+        const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
+        if (matchesSnap.empty) {
+            alert("Aucun match trouvé pour cette semaine.");
+            return;
+        }
+
+        // Objet temporaire pour stocker les résultats des équipes pour cette semaine
+        const teamResultsThisWeek = {};
+
+        matchesSnap.forEach(doc => {
+            const match = doc.data();
+            const homeScore = Number(match.home_score);
+            const awayScore = Number(match.away_score);
+
+            // Vérifier si le match a un score valide
+            if (match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "") {
+                const homeTeamId = typeof match.home_team_id === 'string' ? match.home_team_id.split('/').pop() : match.home_team_id?.id;
+                const awayTeamId = typeof match.away_team_id === 'string' ? match.away_team_id.split('/').pop() : match.away_team_id?.id;
+
+                if (homeTeamId && awayTeamId) {
+                    let homeResult = "loss", awayResult = "loss";
+                    let homePts = -2, awayPts = -2;
+
+                    if (homeScore > awayScore) {
+                        homeResult = "win"; homePts = 5;
+                        awayResult = "loss"; awayPts = -2;
+                    } else if (awayScore > homeScore) {
+                        awayResult = "win"; awayPts = 5;
+                        homeResult = "loss"; homePts = -2;
+                    } else {
+                        homeResult = "tie"; homePts = 7;
+                        awayResult = "tie"; awayPts = 7;
+                    }
+
+                    teamResultsThisWeek[homeTeamId] = { result: homeResult, points: homePts };
+                    teamResultsThisWeek[awayTeamId] = { result: awayResult, points: awayPts };
+                }
+            }
+        });
+
+        // 2. Enregistrer les résultats dans la collection "Draft_Team_Points"
+        // On nettoie la chaîne currentWeek pour l'ID (ex: "Week 1" devient "Week_1" ou on garde tel quel selon ta préférence)
+        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
+
+        const batch = db.batch();
+        for (const [teamId, data] of Object.entries(teamResultsThisWeek)) {
+            const docId = `${teamId}_${weekIdClean}`;
+            const docRef = db.collection('Draft_Team_Points').doc(docId);
+            batch.set(docRef, {
+                team_id: teamId,
+                week: currentWeek,
+                result: data.result,
+                points: data.points,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        await batch.commit();
+        alert("✅ Points de la draft calculés et enregistrés avec succès pour " + currentWeek + " !");
+    } catch (error) {
+        console.error("Erreur lors du calcul de la draft :", error);
+        alert("Erreur lors du calcul des points de la draft.");
+    }
+}
     </script>
 </body>
 </html>
