@@ -1691,14 +1691,14 @@ async function exportLeaguePicksCard() {
         alert("Erreur lors du calcul des points de la draft.");
     }
 }
-        async function calculateAndSaveDraftPicksPoints() {
+       async function calculateAndSaveDraftPicksPoints() {
     if (!currentUserProfile || !currentUserProfile.isAdmin) return;
     if (!confirm("Voulez-vous calculer et mettre à jour tous les points de la Draft pour les utilisateurs ?")) return;
 
     try {
         // 1. Récupérer tous les points des équipes par semaine depuis Draft_Team_Points
         const teamPointsSnap = await db.collection('Draft_Team_Points').get();
-        const teamPointsMap = {}; // Clé: "TeamId_Week", Valeur: points (ex: 5, -2, 7)
+        const teamPointsMap = {}; 
 
         teamPointsSnap.forEach(doc => {
             const data = doc.data();
@@ -1729,15 +1729,13 @@ async function exportLeaguePicksCard() {
             });
         });
 
-        // 3. Pour chaque utilisateur, sommer les points de ses équipes sur toutes les semaines jouées
-        const batch = db.batch();
+        // 3. Préparer les mises à jour avec gestion des lots de 500 max (limite Firestore)
+        let updates = [];
 
         for (const [uname, picks] of Object.entries(userDraftsByUser)) {
             let totalUserPoints = 0;
 
             picks.forEach(pick => {
-                // On additionne les points de cette équipe pour toutes les semaines disponibles dans teamPointsMap
-                // (Ou vous pouvez filtrer par semaine si vous stockez la semaine dans Draft_Picks)
                 for (const [key, pts] of Object.entries(teamPointsMap)) {
                     if (key.startsWith(`${pick.teamId}_`)) {
                         totalUserPoints += pts;
@@ -1745,18 +1743,35 @@ async function exportLeaguePicksCard() {
                 }
             });
 
-            // Mettre à jour le total pour chaque choix de l'utilisateur
             picks.forEach(pick => {
-                batch.update(pick.docRef, { total_user_points: totalUserPoints });
+                if (pick.docRef) {
+                    updates.push({
+                        ref: pick.docRef,
+                        data: { total_user_points: totalUserPoints }
+                    });
+                }
             });
         }
 
-        await batch.commit();
-        alert("✅ Les points de la Draft ont été calculés et mis à jour pour tous les participants !");
-        loadDraftView(); // Recharge la vue pour afficher les nouveaux totaux
+        // Exécuter par paquets de 500 opérations maximum pour respecter les limites Firestore
+        const BATCH_LIMIT = 500;
+        for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
+            const chunk = updates.slice(i, i + BATCH_LIMIT);
+            const batch = db.batch();
+
+            chunk.forEach(item => {
+                batch.update(item.ref, item.data);
+            });
+
+            await batch.commit();
+        }
+
+        alert("✅ Les points de la Draft ont été calculés et mis à jour avec succès !");
+        if (typeof loadDraftView === 'function') loadDraftView();
+
     } catch (error) {
         console.error("Erreur lors de la mise à jour des points Draft :", error);
-        alert("Une erreur est survenue lors du calcul des points de la Draft.");
+        alert("Une erreur est survenue : " + error.message);
     }
 }
     </script>
