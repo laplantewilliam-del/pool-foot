@@ -89,6 +89,50 @@
                 <p class="text-xs text-gray-400">Retrouve ci-dessous les analyses, statistiques avancées et le suivi de la compétition.</p>
             </div>
 
+            <!-- DASHBOARD DRAFT : MENEUR + ÉVOLUTION SEMAINE PAR SEMAINE -->
+            <div id="home-draft-dashboard" class="card-match p-6 rounded-xl border border-purple-500/40 bg-gradient-to-br from-[#161b22] to-[#1a1530]">
+                <div class="mb-4">
+                    <h2 class="text-lg font-bold text-purple-300">🎯 Draft : le meneur et l'évolution semaine par semaine</h2>
+                    <p class="text-xs text-gray-400 mt-1">Points cumulés de chaque participant, calculés à partir des points hebdomadaires de ses équipes choisies.</p>
+                </div>
+                <div id="draft-dash-hero" class="mb-5"><div class="text-center text-gray-400 text-xs p-4">Chargement...</div></div>
+                <div id="draft-dash-content" class="hidden space-y-5">
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                        <div class="lg:col-span-3">
+                            <h3 class="text-xs font-bold text-purple-400 mb-2">📈 Course au titre de la Draft (points cumulés)</h3>
+                            <div class="relative h-72 w-full"><canvas id="draftRaceChart"></canvas></div>
+                        </div>
+                        <div class="lg:col-span-2">
+                            <h3 class="text-xs font-bold text-purple-400 mb-2">🏅 Classement Draft</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                    <thead>
+                                        <tr class="text-gray-400 border-b border-[#30363d]">
+                                            <th class="p-2">#</th>
+                                            <th class="p-2">Participant</th>
+                                            <th class="p-2 text-center">Mouvement</th>
+                                            <th class="p-2 text-center">Dernière sem.</th>
+                                            <th class="p-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="draft-dash-ranking" class="divide-y divide-[#30363d]"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-purple-400 mb-2">👑 Meneur à la fin de chaque semaine</h3>
+                        <div id="draft-dash-leaders" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-purple-400 mb-2">🔎 Détail par équipe choisie (points par semaine)</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs" id="draft-dash-detail"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 1. Graphique Utilisateur -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
@@ -371,6 +415,7 @@
         let userChartInstance = null;
         let leagueChartInstance = null;
         let raceChartInstance = null;
+        let draftRaceChartInstance = null;
 
         window.onload = async function() {
             if (currentUserId) {
@@ -484,7 +529,7 @@
         }
 
         function loadCurrentView() {
-            if (currentTab === 'home') loadHomeStats();
+            if (currentTab === 'home') { loadHomeStats(); loadHomeDraftDashboard(); }
             else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
             else if (currentTab === 'standings') loadStandings();
             else if (currentTab === 'league-picks') loadLeaguePicks();
@@ -492,6 +537,211 @@
             else if (currentTab === 'admin-panel') {
                 if (currentUserProfile && currentUserProfile.isAdmin) loadAdminMatches();
                 else switchTab('home');
+            }
+        }
+
+        // ===== DASHBOARD DRAFT (Accueil) =====
+        function draftRefToId(ref) {
+            if (!ref) return null;
+            if (typeof ref === 'string') return ref.split('/').pop();
+            return ref.id || null;
+        }
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        async function loadHomeDraftDashboard() {
+            const heroEl = document.getElementById('draft-dash-hero');
+            const contentEl = document.getElementById('draft-dash-content');
+            if (!heroEl || !contentEl) return;
+
+            try {
+                const [teamsSnap, picksSnap, ptsSnap] = await Promise.all([
+                    db.collection('Teams').get(),
+                    db.collection('Draft_Picks').get(),
+                    db.collection('Draft_Team_Points').get()
+                ]);
+
+                const teamNames = {};
+                teamsSnap.forEach(d => { teamNames[d.id] = d.data().name || d.id; });
+
+                // Points par équipe et par semaine (numéro de semaine => points)
+                const teamWeekPts = {};
+                let maxWeek = 0;
+                ptsSnap.forEach(d => {
+                    const x = d.data();
+                    const tid = draftRefToId(x.team_id);
+                    const wn = parseInt(String(x.week || '').replace(/\D/g, ''), 10);
+                    if (!tid || !wn) return;
+                    if (!teamWeekPts[tid]) teamWeekPts[tid] = {};
+                    teamWeekPts[tid][wn] = Number(x.points) || 0;
+                    if (wn > maxWeek) maxWeek = wn;
+                });
+
+                // Équipes choisies par participant
+                const users = {};
+                picksSnap.forEach(d => {
+                    const x = d.data();
+                    const uname = x.username;
+                    const tid = draftRefToId(x.team_id || x.chosen_team_id);
+                    if (!uname || !tid) return;
+                    if (!users[uname]) users[uname] = { teams: [] };
+                    if (!users[uname].teams.includes(tid)) users[uname].teams.push(tid);
+                });
+
+                const names = Object.keys(users);
+                if (names.length === 0 || maxWeek === 0) {
+                    contentEl.classList.add('hidden');
+                    heroEl.innerHTML = `<div class="text-center text-gray-400 text-xs p-4">${names.length === 0 ? 'Aucun choix de Draft enregistré pour le moment.' : 'Aucun point de Draft calculé pour le moment. Un admin doit lancer « Calculer les points de la Draft ».'}</div>`;
+                    return;
+                }
+
+                const weeks = Array.from({ length: maxWeek }, (_, i) => i + 1);
+
+                names.forEach(u => {
+                    const us = users[u];
+                    us.teamStats = us.teams.map(tid => {
+                        const perWeek = weeks.map(w => (teamWeekPts[tid] && teamWeekPts[tid][w] !== undefined) ? teamWeekPts[tid][w] : null);
+                        return { tid, name: teamNames[tid] || tid, perWeek, total: perWeek.reduce((a, v) => a + (v || 0), 0) };
+                    });
+                    us.weekly = weeks.map((w, i) => us.teamStats.reduce((a, t) => a + (t.perWeek[i] || 0), 0));
+                    let run = 0;
+                    us.cumul = us.weekly.map(v => (run += v));
+                    us.total = run;
+                });
+
+                // Rangs à la fin de chaque semaine (égalités = même rang)
+                const ranksByWeek = weeks.map((w, i) => {
+                    const r = {};
+                    names.forEach(u => { r[u] = 1 + names.filter(o => users[o].cumul[i] > users[u].cumul[i]).length; });
+                    return r;
+                });
+                const last = weeks.length - 1;
+                const curRanks = ranksByWeek[last];
+                const prevRanks = last > 0 ? ranksByWeek[last - 1] : null;
+
+                const sorted = [...names].sort((a, b) => users[b].total - users[a].total || a.localeCompare(b));
+                const topTotal = users[sorted[0]].total;
+                const leaders = sorted.filter(u => users[u].total === topTotal);
+                const secondTotal = sorted.map(u => users[u].total).find(t => t < topTotal);
+                const lead = secondTotal === undefined ? 0 : topTotal - secondTotal;
+                const weeksLed = u => ranksByWeek.filter(r => r[u] === 1).length;
+
+                const fmt = n => (n > 0 ? '+' : '') + n;
+                const sumCls = v => v > 0 ? 'text-green-400' : v < 0 ? 'text-red-400' : 'text-gray-400';
+                const teamCls = v => v === null ? 'text-gray-600' : v >= 7 ? 'text-amber-400' : v > 0 ? 'text-green-400' : v < 0 ? 'text-red-400' : 'text-gray-400';
+
+                // 1. Bandeau du meneur
+                const leaderNames = leaders.map(escapeHtml).join(' & ');
+                const leaderLast = leaders.map(u => users[u].weekly[last]);
+                heroEl.innerHTML = `
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10">
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl">👑</div>
+                            <div>
+                                <div class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">${leaders.length > 1 ? 'Meneurs (égalité)' : 'Meneur de la Draft'}</div>
+                                <div class="text-2xl font-extrabold text-white">${leaderNames}</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3 text-center">
+                            <div class="bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-2">
+                                <div class="text-xl font-bold text-amber-300">${topTotal} pts</div>
+                                <div class="text-[10px] text-gray-400">Total</div>
+                            </div>
+                            <div class="bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-2">
+                                <div class="text-xl font-bold text-white">${leaders.length > 1 ? 'Égalité' : '+' + lead}</div>
+                                <div class="text-[10px] text-gray-400">${leaders.length > 1 ? 'au sommet' : 'd\'avance sur le 2e'}</div>
+                            </div>
+                            <div class="bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-2">
+                                <div class="text-xl font-bold ${sumCls(leaderLast[0])}">${fmt(leaderLast[0])}</div>
+                                <div class="text-[10px] text-gray-400">Semaine ${weeks[last]}</div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                // 2. Graphique cumulatif
+                const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6'];
+                const datasets = sorted.map((u, idx) => ({
+                    label: u,
+                    data: users[u].cumul,
+                    borderColor: palette[idx % palette.length],
+                    backgroundColor: palette[idx % palette.length],
+                    borderWidth: (u === currentUserId || leaders.includes(u)) ? 3.5 : 1.8,
+                    pointRadius: 3,
+                    tension: 0.25
+                }));
+                contentEl.classList.remove('hidden');
+                const ctx = document.getElementById('draftRaceChart').getContext('2d');
+                if (draftRaceChartInstance) draftRaceChartInstance.destroy();
+                draftRaceChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: weeks.map(w => 'S.' + w), datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } },
+                            y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }
+                        }
+                    }
+                });
+
+                // 3. Classement avec mouvement vs semaine précédente
+                const rankingTbody = document.getElementById('draft-dash-ranking');
+                rankingTbody.innerHTML = sorted.map(u => {
+                    let move = '<span class="text-gray-500">-</span>';
+                    if (prevRanks) {
+                        const diff = prevRanks[u] - curRanks[u];
+                        if (diff > 0) move = `<span class="text-green-400 font-bold">▲ ${diff}</span>`;
+                        else if (diff < 0) move = `<span class="text-red-400 font-bold">▼ ${Math.abs(diff)}</span>`;
+                        else move = '<span class="text-gray-400">=</span>';
+                    }
+                    const w = users[u].weekly[last];
+                    return `
+                        <tr class="${u === currentUserId ? 'bg-blue-500/10' : ''}">
+                            <td class="p-2 text-gray-400">#${curRanks[u]}</td>
+                            <td class="p-2 font-bold text-white">${escapeHtml(u)}${weeksLed(u) > 0 ? ` <span class="text-[10px] text-amber-400 font-normal">👑 ${weeksLed(u)} sem.</span>` : ''}</td>
+                            <td class="p-2 text-center">${move}</td>
+                            <td class="p-2 text-center font-bold ${sumCls(w)}">${fmt(w)}</td>
+                            <td class="p-2 text-right font-bold text-purple-300">${users[u].total} pts</td>
+                        </tr>`;
+                }).join('');
+
+                // 4. Meneur à la fin de chaque semaine
+                document.getElementById('draft-dash-leaders').innerHTML = weeks.map((w, i) => {
+                    const top = names.filter(u => ranksByWeek[i][u] === 1).sort();
+                    return `<div class="bg-[#21262d] border border-[#30363d] rounded-lg px-3 py-1.5 text-[11px]">
+                        <span class="text-gray-400 font-bold">S.${w}</span>
+                        <span class="text-amber-300 font-bold ml-1">${top.map(escapeHtml).join(' & ')}</span>
+                    </div>`;
+                }).join('');
+
+                // 5. Détail par équipe choisie, semaine par semaine
+                let detail = `<thead><tr class="text-gray-400 border-b border-[#30363d]">
+                    <th class="p-2 sticky left-0 bg-[#161b22]">Participant / Équipe</th>
+                    ${weeks.map(w => `<th class="p-2 text-center">S.${w}</th>`).join('')}
+                    <th class="p-2 text-right">Total</th></tr></thead><tbody>`;
+                sorted.forEach(u => {
+                    const us = users[u];
+                    detail += `<tr class="border-t border-[#30363d] bg-[#21262d]/60">
+                        <td class="p-2 font-bold text-white sticky left-0 bg-[#1c2129]">${escapeHtml(u)}</td>
+                        ${us.weekly.map(v => `<td class="p-2 text-center font-bold ${sumCls(v)}">${fmt(v)}</td>`).join('')}
+                        <td class="p-2 text-right font-bold text-purple-300">${us.total}</td></tr>`;
+                    us.teamStats.forEach(t => {
+                        detail += `<tr>
+                            <td class="p-2 pl-6 text-gray-300 sticky left-0 bg-[#161b22]">${escapeHtml(t.name)}</td>
+                            ${t.perWeek.map(v => `<td class="p-2 text-center ${teamCls(v)}">${v === null ? '·' : fmt(v)}</td>`).join('')}
+                            <td class="p-2 text-right text-gray-300">${t.total}</td></tr>`;
+                    });
+                });
+                detail += '</tbody>';
+                document.getElementById('draft-dash-detail').innerHTML = detail;
+
+            } catch (error) {
+                console.error("Erreur dashboard Draft :", error);
+                heroEl.innerHTML = '<div class="text-center text-red-400 text-xs p-4">Erreur de chargement du dashboard Draft (voir la console).</div>';
             }
         }
 
@@ -915,7 +1165,7 @@ async function generateSortOrderForMatches() {
                     const homeScore = m.home_score !== undefined && m.home_score !== "" ? Number(m.home_score) : null;
                     const awayScore = m.away_score !== undefined && m.away_score !== "" ? Number(m.away_score) : null;
 
-                    if (homeScore !== null && awayScore !== null) {
+                    if (homeScore !== null && awayScore !== null && !(homeScore === 0 && awayScore === 0)) {
                         const homeId = typeof m.home_team_id === 'string' ? m.home_team_id.split('/').pop() : m.home_team_id.id;
                         const awayId = typeof m.away_team_id === 'string' ? m.away_team_id.split('/').pop() : m.away_team_id.id;
 
@@ -1689,13 +1939,24 @@ async function calculateAndSaveDraftPicksPoints() {
         }
 
         const teamResultsThisWeek = {};
+        const unscoredTeams = {};   // équipes dont le match n'a aucun score saisi
+        let unscoredMatches = 0;
 
         matchesSnap.forEach(doc => {
             const match = doc.data();
             const homeScore = Number(match.home_score);
             const awayScore = Number(match.away_score);
 
-            if (match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "") {
+            const hasScore = match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "";
+            if (!hasScore) {
+                unscoredMatches++;
+                [match.home_team_id, match.away_team_id].forEach(ref => {
+                    const tid = typeof ref === 'string' ? ref.split('/').pop() : ref?.id;
+                    if (tid) unscoredTeams[tid] = ref;
+                });
+            }
+
+            if (hasScore) {
                 const homeTeamRef = match.home_team_id;
                 const awayTeamRef = match.away_team_id;
 
@@ -1707,16 +1968,17 @@ async function calculateAndSaveDraftPicksPoints() {
                     let homeResult = "loss", awayResult = "loss";
                     let homePts = -2, awayPts = -2;
 
-                    if (homeScore > awayScore) {
+                    if (homeScore === 0 && awayScore === 0) {
+                        // 0-0 = match non joué : 0 point pour les deux équipes
+                        homeResult = "pending"; homePts = 0;
+                        awayResult = "pending"; awayPts = 0;
+                    } else if (homeScore > awayScore) {
                         homeResult = "win"; homePts = 5;
                         awayResult = "loss"; awayPts = -2;
                     } else if (awayScore > homeScore) {
                         awayResult = "win"; awayPts = 5;
                         homeResult = "loss"; homePts = -2;
-                    }  else if (awayScore == 0 && homeScore == 0) {
-                        awayResult = ""; awayPts = 0;
-                        homeResult = ""; homePts = 0;
-                    }else {
+                    } else {
                         homeResult = "tie"; homePts = 7;
                         awayResult = "tie"; awayPts = 7;
                     }
@@ -1727,27 +1989,65 @@ async function calculateAndSaveDraftPicksPoints() {
             }
         });
 
-        // 2. Nettoyage de la semaine pour l'ID (ex: "Week 1" devient "Week_1")
-        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
+        // 2. Retrouver les documents déjà présents dans Draft_Team_Points pour la semaine courante,
+        //    quel que soit leur ID (ID auto-généré, ancien format, saisie manuelle)
+        const currentWeekNum = parseInt(String(currentWeek).replace(/\D/g, ''), 10);
+        const existingSnap = await db.collection('Draft_Team_Points').get();
+        const existingByTeam = {}; // teamId -> [références des documents existants]
+        existingSnap.forEach(doc => {
+            const d = doc.data();
+            const tid = typeof d.team_id === 'string' ? d.team_id.split('/').pop() : d.team_id?.id;
+            const wn = parseInt(String(d.week || '').replace(/\D/g, ''), 10);
+            if (tid && wn === currentWeekNum) {
+                if (!existingByTeam[tid]) existingByTeam[tid] = [];
+                existingByTeam[tid].push(doc.ref);
+            }
+        });
 
+        // 3. Mettre à jour les documents existants, ou créer le document s'il n'existe pas
+        const weekIdClean = currentWeek.replace(/\s+/g, '_');
         const batch = db.batch();
+        let updatedCount = 0, createdCount = 0, duplicatesCount = 0;
+
         for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
-            // L'ID du document est STRICTEMENT unique par équipe et par semaine (ex: "KC_Week_1")
-            const docId = `${teamIdStr}_${weekIdClean}`;
-            const docRef = db.collection('Draft_Team_Points').doc(docId);
-            
-            // Avec { merge: true }, si le document existe déjà, il est mis à jour. S'il n'existe pas, il est créé. Jamais de doublon.
-            batch.set(docRef, {
+            const payload = {
                 team_id: data.teamRef,
                 week: currentWeek,
                 result: data.result,
                 points: data.points,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            };
+            const existingRefs = existingByTeam[teamIdStr];
+            if (existingRefs && existingRefs.length > 0) {
+                existingRefs.forEach(ref => batch.set(ref, payload, { merge: true }));
+                updatedCount++;
+                duplicatesCount += existingRefs.length - 1;
+            } else {
+                const docRef = db.collection('Draft_Team_Points').doc(`${teamIdStr}_${weekIdClean}`);
+                batch.set(docRef, payload, { merge: true });
+                createdCount++;
+            }
+        }
+
+        // 4. Match sans score saisi : si un document existe déjà (ex. ancien 7 points), on le remet à 0
+        let resetCount = 0;
+        for (const [teamIdStr, ref] of Object.entries(unscoredTeams)) {
+            if (teamResultsThisWeek[teamIdStr]) continue;
+            const existingRefs = existingByTeam[teamIdStr];
+            if (existingRefs && existingRefs.length > 0) {
+                existingRefs.forEach(r => batch.set(r, {
+                    team_id: ref,
+                    week: currentWeek,
+                    result: "pending",
+                    points: 0,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }));
+                resetCount++;
+            }
         }
 
         await batch.commit();
-        alert("✅ Points de la draft mis à jour avec succès pour " + currentWeek + " (aucun doublon) !");
+        alert(`✅ ${currentWeek} : ${updatedCount} équipe(s) mise(s) à jour, ${createdCount} créée(s)` + (duplicatesCount > 0 ? `, ${duplicatesCount} document(s) en doublon aussi mis à jour` : '') + `.` + (unscoredMatches > 0 ? `\n${unscoredMatches} match(s) sans score saisi : ${resetCount} équipe(s) existante(s) remise(s) à 0.` : ''));
     } catch (error) {
         console.error("Erreur lors du calcul de la draft :", error);
         alert("Erreur lors du calcul des points de la draft.");
