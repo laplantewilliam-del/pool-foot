@@ -1607,14 +1607,23 @@ async function exportLeaguePicksCard() {
 
         matchesSnap.forEach(doc => {
             const match = doc.data();
-            const homeScore = Number(match.home_score);
-            const awayScore = Number(match.away_score);
+            
+            // Vérifier que les scores existent et ne sont pas vides (et ignorer si 0-0 ou non saisis)
+            const hasHomeScore = match.home_score !== undefined && match.home_score !== "" && match.home_score !== null;
+            const hasAwayScore = match.away_score !== undefined && match.away_score !== "" && match.away_score !== null;
 
-            if (match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "") {
+            if (hasHomeScore && hasAwayScore) {
+                const homeScore = Number(match.home_score);
+                const awayScore = Number(match.away_score);
+
+                // Si le score est 0-0, on considère que le match n'a pas commencé/été joué -> on ignore
+                if (homeScore === 0 && awayScore === 0) {
+                    return; 
+                }
+
                 const homeTeamRef = match.home_team_id;
                 const awayTeamRef = match.away_team_id;
 
-                // Extraire proprement l'identifiant texte de l'équipe (ex: "KC") pour qu'il soit unique et stable
                 let homeTeamIdStr = typeof homeTeamRef === 'string' ? homeTeamRef.split('/').pop() : homeTeamRef?.id;
                 let awayTeamIdStr = typeof awayTeamRef === 'string' ? awayTeamRef.split('/').pop() : awayTeamRef?.id;
 
@@ -1629,6 +1638,7 @@ async function exportLeaguePicksCard() {
                         awayResult = "win"; awayPts = 5;
                         homeResult = "loss"; homePts = -2;
                     } else {
+                        // Vrai match nul (ex: 10-10, 14-14, etc.)
                         homeResult = "tie"; homePts = 7;
                         awayResult = "tie"; awayPts = 7;
                     }
@@ -1639,16 +1649,14 @@ async function exportLeaguePicksCard() {
             }
         });
 
-        // 2. Nettoyage de la semaine pour l'ID (ex: "Week 1" devient "Week_1")
+        // 2. Enregistrement propre sans doublons
         const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
 
         const batch = db.batch();
         for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
-            // L'ID du document est STRICTEMENT unique par équipe et par semaine (ex: "KC_Week_1")
             const docId = `${teamIdStr}_${weekIdClean}`;
             const docRef = db.collection('Draft_Team_Points').doc(docId);
             
-            // Avec { merge: true }, si le document existe déjà, il est mis à jour. S'il n'existe pas, il est créé. Jamais de doublon.
             batch.set(docRef, {
                 team_id: data.teamRef,
                 week: currentWeek,
@@ -1659,7 +1667,7 @@ async function exportLeaguePicksCard() {
         }
 
         await batch.commit();
-        alert("✅ Points de la draft mis à jour avec succès pour " + currentWeek + " (aucun doublon) !");
+        alert("✅ Points de la draft mis à jour pour " + currentWeek + " (0-0 ignoré) !");
     } catch (error) {
         console.error("Erreur lors du calcul de la draft :", error);
         alert("Erreur lors du calcul des points de la draft.");
