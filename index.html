@@ -1594,6 +1594,90 @@ async function exportLeaguePicksCard() {
                 });
             } catch (error) { console.error("Erreur :", error); }
         }
+        
+       async function calculateAndSaveDraftPicksPoints() {
+    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+    if (!confirm("Voulez-vous calculer et mettre à jour tous les points de la Draft pour les utilisateurs ?")) return;
+
+    try {
+        // 1. Récupérer tous les points des équipes par semaine depuis Draft_Team_Points
+        const teamPointsSnap = await db.collection('Draft_Team_Points').get();
+        const teamPointsMap = {}; 
+
+        teamPointsSnap.forEach(doc => {
+            const data = doc.data();
+            let teamIdStr = typeof data.team_id === 'string' ? data.team_id.split('/').pop() : data.team_id?.id;
+            const week = data.week;
+            if (teamIdStr && week) {
+                teamPointsMap[`${teamIdStr}_${week}`] = Number(data.points) || 0;
+            }
+        });
+
+        // 2. Récupérer tous les choix de la draft des utilisateurs (Draft_Picks)
+        const draftPicksSnap = await db.collection('Draft_Picks').get();
+        const userDraftsByUser = {};
+
+        draftPicksSnap.forEach(doc => {
+            const data = doc.data();
+            const uname = data.username;
+            if (!uname) return;
+
+            let teamIdStr = typeof data.team_id === 'string' ? data.team_id.split('/').pop() : data.team_id?.id;
+            
+            if (!userDraftsByUser[uname]) {
+                userDraftsByUser[uname] = [];
+            }
+            userDraftsByUser[uname].push({
+                docRef: doc.ref,
+                teamId: teamIdStr
+            });
+        });
+
+        // 3. Préparer les mises à jour avec gestion des lots de 500 max (limite Firestore)
+        let updates = [];
+
+        for (const [uname, picks] of Object.entries(userDraftsByUser)) {
+            let totalUserPoints = 0;
+
+            picks.forEach(pick => {
+                for (const [key, pts] of Object.entries(teamPointsMap)) {
+                    if (key.startsWith(`${pick.teamId}_`)) {
+                        totalUserPoints += pts;
+                    }
+                }
+            });
+
+            picks.forEach(pick => {
+                if (pick.docRef) {
+                    updates.push({
+                        ref: pick.docRef,
+                        data: { total_user_points: totalUserPoints }
+                    });
+                }
+            });
+        }
+
+        // Exécuter par paquets de 500 opérations maximum pour respecter les limites Firestore
+        const BATCH_LIMIT = 500;
+        for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
+            const chunk = updates.slice(i, i + BATCH_LIMIT);
+            const batch = db.batch();
+
+            chunk.forEach(item => {
+                batch.update(item.ref, item.data);
+            });
+
+            await batch.commit();
+        }
+
+        alert("✅ Les points de la Draft ont été calculés et mis à jour avec succès !");
+        if (typeof loadDraftView === 'function') loadDraftView();
+
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour des points Draft :", error);
+        alert("Une erreur est survenue : " + error.message);
+    }
+}
         async function calculateDraftPointsForWeek() {
     if (!currentUserProfile || !currentUserProfile.isAdmin) return;
     try {
@@ -1689,89 +1773,6 @@ async function exportLeaguePicksCard() {
     } catch (error) {
         console.error("Erreur lors du calcul de la draft :", error);
         alert("Erreur lors du calcul des points de la draft.");
-    }
-}
-       async function calculateAndSaveDraftPicksPoints() {
-    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-    if (!confirm("Voulez-vous calculer et mettre à jour tous les points de la Draft pour les utilisateurs ?")) return;
-
-    try {
-        // 1. Récupérer tous les points des équipes par semaine depuis Draft_Team_Points
-        const teamPointsSnap = await db.collection('Draft_Team_Points').get();
-        const teamPointsMap = {}; 
-
-        teamPointsSnap.forEach(doc => {
-            const data = doc.data();
-            let teamIdStr = typeof data.team_id === 'string' ? data.team_id.split('/').pop() : data.team_id?.id;
-            const week = data.week;
-            if (teamIdStr && week) {
-                teamPointsMap[`${teamIdStr}_${week}`] = Number(data.points) || 0;
-            }
-        });
-
-        // 2. Récupérer tous les choix de la draft des utilisateurs (Draft_Picks)
-        const draftPicksSnap = await db.collection('Draft_Picks').get();
-        const userDraftsByUser = {};
-
-        draftPicksSnap.forEach(doc => {
-            const data = doc.data();
-            const uname = data.username;
-            if (!uname) return;
-
-            let teamIdStr = typeof data.team_id === 'string' ? data.team_id.split('/').pop() : data.team_id?.id;
-            
-            if (!userDraftsByUser[uname]) {
-                userDraftsByUser[uname] = [];
-            }
-            userDraftsByUser[uname].push({
-                docRef: doc.ref,
-                teamId: teamIdStr
-            });
-        });
-
-        // 3. Préparer les mises à jour avec gestion des lots de 500 max (limite Firestore)
-        let updates = [];
-
-        for (const [uname, picks] of Object.entries(userDraftsByUser)) {
-            let totalUserPoints = 0;
-
-            picks.forEach(pick => {
-                for (const [key, pts] of Object.entries(teamPointsMap)) {
-                    if (key.startsWith(`${pick.teamId}_`)) {
-                        totalUserPoints += pts;
-                    }
-                }
-            });
-
-            picks.forEach(pick => {
-                if (pick.docRef) {
-                    updates.push({
-                        ref: pick.docRef,
-                        data: { total_user_points: totalUserPoints }
-                    });
-                }
-            });
-        }
-
-        // Exécuter par paquets de 500 opérations maximum pour respecter les limites Firestore
-        const BATCH_LIMIT = 500;
-        for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
-            const chunk = updates.slice(i, i + BATCH_LIMIT);
-            const batch = db.batch();
-
-            chunk.forEach(item => {
-                batch.update(item.ref, item.data);
-            });
-
-            await batch.commit();
-        }
-
-        alert("✅ Les points de la Draft ont été calculés et mis à jour avec succès !");
-        if (typeof loadDraftView === 'function') loadDraftView();
-
-    } catch (error) {
-        console.error("Erreur lors de la mise à jour des points Draft :", error);
-        alert("Une erreur est survenue : " + error.message);
     }
 }
     </script>
