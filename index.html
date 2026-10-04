@@ -1713,7 +1713,10 @@ async function calculateAndSaveDraftPicksPoints() {
                     } else if (awayScore > homeScore) {
                         awayResult = "win"; awayPts = 5;
                         homeResult = "loss"; homePts = -2;
-                    } else {
+                    }  else if (awayScore == 0 && homeScore == 0) {
+                        awayResult = ""; awayPts = 0;
+                        homeResult = ""; homePts = 0;
+                    }else {
                         homeResult = "tie"; homePts = 7;
                         awayResult = "tie"; awayPts = 7;
                     }
