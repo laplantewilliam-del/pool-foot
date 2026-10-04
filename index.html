@@ -1674,6 +1674,31 @@ async function exportLeaguePicksCard() {
     }
 }
 
+        // 2. Enregistrement propre sans doublons
+        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
+
+        const batch = db.batch();
+        for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
+            const docId = `${teamIdStr}_${weekIdClean}`;
+            const docRef = db.collection('Draft_Team_Points').doc(docId);
+            
+            batch.set(docRef, {
+                team_id: data.teamRef,
+                week: currentWeek,
+                result: data.result,
+                points: data.points,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        await batch.commit();
+        alert("✅ Points de la draft mis à jour pour " + currentWeek + " (0-0 ignoré) !");
+    } catch (error) {
+        console.error("Erreur lors du calcul de la draft :", error);
+        alert("Erreur lors du calcul des points de la draft.");
+    }
+}
+
         // 2. Nettoyage de la semaine pour l'ID (ex: "Week 1" devient "Week_1")
         const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
 
