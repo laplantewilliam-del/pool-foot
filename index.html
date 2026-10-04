@@ -55,6 +55,7 @@
                     <button onclick="switchTab('standings')" id="tab-standings" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🏆 Classement</button>
                     <button onclick="switchTab('league-picks')" id="tab-league-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Choix de la Ligue</button>
                     <button onclick="switchTab('draft')" id="tab-draft" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">📋 Draft</button>
+                    <!-- Le bouton admin est géré dynamiquement par JS -->
                     <div id="admin-tab-container"></div>
                 </div>
 
@@ -81,7 +82,7 @@
             </div>
         </header>
 
-        <!-- VUE ACCUEIL -->
+        <!-- VUE ACCUEIL & 6 TABLEAUX / GRAPHIQUES -->
         <div id="view-home" class="space-y-6">
             <div class="card-match p-6 rounded-xl bg-gradient-to-r from-[#161b22] to-[#1f242d] border border-[#30363d]">
                 <h2 class="text-xl font-bold text-white mb-1">👋 Tableau de bord de la Ligue, <span id="welcome-username" class="text-blue-400"></span></h2>
@@ -89,6 +90,7 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 1. Graphique Utilisateur -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-blue-400 mb-1">📊 1. Tes Performances (Points par Semaine)</h3>
@@ -99,6 +101,7 @@
                     </div>
                 </div>
 
+                <!-- 2. Graphique Ligue -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-green-400 mb-1">🏆 2. Comparatif Total de la Ligue</h3>
@@ -111,6 +114,7 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 3. Graphique Évolution multi-joueurs (Course F1) -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-purple-400 mb-1">📈 3. Course au Titre (Évolution de la Ligue)</h3>
@@ -121,6 +125,7 @@
                     </div>
                 </div>
 
+                <!-- 4. Tableau Survivor Global -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-amber-400 mb-1">🛡️ 4. Suivi Global du Survivor</h3>
@@ -144,6 +149,7 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 5. Tableau Popularité / Contre la Vague -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-cyan-400 mb-1">🎯 5. Popularité des Choix ("Contre la Vague")</h3>
@@ -154,6 +160,7 @@
                     </div>
                 </div>
 
+                <!-- 6. Classement Spread -->
                 <div class="card-match p-6 rounded-xl flex flex-col justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-pink-400 mb-1">⭐️ 6. Maîtrise des Spreads (+ / -)</h3>
@@ -200,6 +207,7 @@
                 <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
             </div>
             
+            <!-- BOUTONS ENREGISTRER ET EXPORTER CSV -->
             <div class="mt-8 flex justify-end gap-3" id="save-picks-container">
                 <button onclick="exportPicksCSV()" class="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition text-sm">
                     📄 Créer un fichier CSV
@@ -240,10 +248,10 @@
         <!-- VUE CHOIX DE LA LIGUE -->
         <div id="view-league-picks" class="hidden">
             <div class="flex justify-end mb-4">
-                <button onclick="exportLeaguePicksCard()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all">
-                    📸 Télécharger la Carte Messenger
-                </button>
-            </div>
+    <button onclick="exportLeaguePicksCard()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all">
+        📸 Télécharger la Carte Messenger
+    </button>
+</div>
             <div id="league-container" class="space-y-4">
                 <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
             </div>
@@ -254,7 +262,7 @@
             <div class="card-match p-6 rounded-xl bg-[#161b22] border-purple-500/40">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-xl font-bold text-purple-300">🎯 Choix Repêchage (Fiches de la saison)</h2>
+                        <h2 class="text-xl font-bold text-purple-300">🎯 Choix Repêchage (Fiches de la saison 2025)</h2>
                         <p class="text-xs text-gray-400 mt-1">Règlement : 2 choix par groupe (A, B, C, D). Victoire = +5, Défaite = -2, Nul = +7.</p>
                     </div>
                 </div>
@@ -296,20 +304,17 @@
                     ⚡ Générer les SortOrder
                 </button>
             </div>
-
             <div class="card-match p-6 rounded-xl bg-purple-950/20 border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 class="text-lg font-bold text-purple-300">🎯 Administration - Calcul du Draft</h2>
-                    <p class="text-xs text-gray-300 mt-1">Calcule et met à jour les points de la draft pour la semaine active ou pour l'ensemble de la saison.</p>
+                    <p class="text-xs text-gray-300 mt-1">Calcule les points de toutes les équipes sélectionnées.</p>
                 </div>
-                <div class="flex items-center gap-2 flex-wrap">
-                    <button onclick="calculateDraftPointsForWeek()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-3 rounded-lg shadow transition">
-                        Calculer la semaine
-                    </button>
-                    <button onclick="calculateAllDraftPoints()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-3 rounded-lg shadow transition">
-                        Calculer tout (Saison)
-                    </button>
-                </div>
+                <button onclick="calculateAllDraftPoints()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 rounded-lg shadow transition">
+                    🔄 Calculer tous les points du Draft
+                </button>
+                <button onclick="calculateDraftPointsForWeek()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded">
+    Calculer les points de la Draft
+</button>
             </div>
 
             <div class="card-match p-6 rounded-xl bg-blue-950/10 border-blue-500/40">
@@ -665,63 +670,65 @@
                 console.error("Erreur chargement statistiques accueil :", error);
             }
         }
+async function generateSortOrderForMatches() {
+    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+    if (!confirm("Voulez-vous générer et assigner le champ 'sortOrder' pour tous les matchs de toutes les semaines ?")) return;
 
-        async function generateSortOrderForMatches() {
-            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-            if (!confirm("Voulez-vous générer et assigner le champ 'sortOrder' pour tous les matchs de toutes les semaines ?")) return;
-
-            try {
-                const matchesSnap = await db.collection('Matches').get();
-                if (matchesSnap.empty) {
-                    alert("Aucun match trouvé dans Firestore.");
-                    return;
-                }
-
-                const weeksMap = {};
-                matchesSnap.forEach(doc => {
-                    const data = doc.data();
-                    const week = data.Week || "Week 1";
-                    if (!weeksMap[week]) weeksMap[week] = [];
-                    weeksMap[week].push({ id: doc.id, ref: doc.ref, ...data });
-                });
-
-                const teamCache = {};
-                const batch = db.batch();
-                let updatedCount = 0;
-
-                for (const [week, matchesList] of Object.entries(weeksMap)) {
-                    for (const match of matchesList) {
-                        match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
-                    }
-
-                    matchesList.sort((a, b) => {
-                        let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
-                        let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
-                        
-                        if (dateA.getTime() !== dateB.getTime()) {
-                            return dateA - dateB;
-                        }
-                        
-                        let homeNameA = a._homeTeamObj.name || "";
-                        let homeNameB = b._homeTeamObj.name || "";
-                        return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
-                    });
-
-                    matchesList.forEach((match, index) => {
-                        const sortOrder = index + 1;
-                        batch.update(match.ref, { sortOrder: sortOrder });
-                        updatedCount++;
-                    });
-                }
-
-                await batch.commit();
-                alert(`✅ ${updatedCount} matchs mis à jour avec succès avec leur champ 'sortOrder' !`);
-            } catch (error) {
-                console.error("Erreur lors de la génération des sortOrder :", error);
-                alert("Une erreur est survenue lors de la génération.");
-            }
+    try {
+        const matchesSnap = await db.collection('Matches').get();
+        if (matchesSnap.empty) {
+            alert("Aucun match trouvé dans Firestore.");
+            return;
         }
 
+        // Grouper les matchs par semaine
+        const weeksMap = {};
+        matchesSnap.forEach(doc => {
+            const data = doc.data();
+            const week = data.Week || "Week 1";
+            if (!weeksMap[week]) weeksMap[week] = [];
+            weeksMap[week].push({ id: doc.id, ref: doc.ref, ...data });
+        });
+
+        const teamCache = {};
+        const batch = db.batch();
+        let updatedCount = 0;
+
+        for (const [week, matchesList] of Object.entries(weeksMap)) {
+            // Pré-charger les infos des équipes pour chaque match de la semaine
+            for (const match of matchesList) {
+                match._homeTeamObj = await getTeamInfoCached(match.home_team_id, teamCache);
+            }
+
+            // Trier par date/heure, puis par nom d'équipe hôte (alphabétique)
+            matchesList.sort((a, b) => {
+                let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
+                let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
+                
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+                
+                let homeNameA = a._homeTeamObj.name || "";
+                let homeNameB = b._homeTeamObj.name || "";
+                return homeNameA.localeCompare(homeNameB, 'fr', { sensitivity: 'base' });
+            });
+
+            // Assigner un sortOrder de 1 à N pour cette semaine
+            matchesList.forEach((match, index) => {
+                const sortOrder = index + 1;
+                batch.update(match.ref, { sortOrder: sortOrder });
+                updatedCount++;
+            });
+        }
+
+        await batch.commit();
+        alert(`✅ ${updatedCount} matchs mis à jour avec succès avec leur champ 'sortOrder' !`);
+    } catch (error) {
+        console.error("Erreur lors de la génération des sortOrder :", error);
+        alert("Une erreur est survenue lors de la génération.");
+    }
+}
         async function loadDraftView() {
             const gridContainer = document.getElementById('groups-grid-container');
             const tbody = document.getElementById('draft-picks-tbody');
@@ -899,7 +906,7 @@
 
         async function calculateAllDraftPoints() {
             if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-            if (!confirm("Lancer le calcul global des points de la Draft pour toute la saison ?")) return;
+            if (!confirm("Lancer le calcul des points du Draft ?")) return;
             try {
                 const matchesSnap = await db.collection('Matches').get();
                 const teamRecord = {};
@@ -908,7 +915,7 @@
                     const homeScore = m.home_score !== undefined && m.home_score !== "" ? Number(m.home_score) : null;
                     const awayScore = m.away_score !== undefined && m.away_score !== "" ? Number(m.away_score) : null;
 
-                    if (homeScore !== null && awayScore !== null && !(homeScore === 0 && awayScore === 0)) {
+                    if (homeScore !== null && awayScore !== null) {
                         const homeId = typeof m.home_team_id === 'string' ? m.home_team_id.split('/').pop() : m.home_team_id.id;
                         const awayId = typeof m.away_team_id === 'string' ? m.away_team_id.split('/').pop() : m.away_team_id.id;
 
@@ -948,7 +955,7 @@
                 }
 
                 await batch.commit();
-                alert("✅ Calcul global du Draft effectué !");
+                alert("✅ Calcul effectué !");
                 loadDraftView();
             } catch (error) { console.error("Erreur :", error); }
         }
@@ -1043,6 +1050,8 @@
             } catch (error) { console.error("Erreur :", error); }
         }
 
+        
+
         async function getTeamInfoCached(teamRef, cache) {
             let teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : teamRef?.id;
             if (!teamId) return { id: "", name: "Équipe", shortName: "ÉQ", logo: "" };
@@ -1059,11 +1068,12 @@
             return cache[teamId];
         }
 
-        async function loadAdminMatches() {
+       async function loadAdminMatches() {
             if (!currentUserProfile || !currentUserProfile.isAdmin) return;
             const container = document.getElementById('admin-matches-container');
             container.innerHTML = '<div class="text-center text-gray-400">Chargement...</div>';
             try {
+                // Utilisation du tri par sortOrder dans l'admin
                 const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).orderBy('sortOrder').get();
                 if (snapshot.empty) { container.innerHTML = `<div class="text-center text-gray-400">Aucun match.</div>`; return; }
                 
@@ -1221,6 +1231,8 @@
             }
         }
 
+        
+
         function selectWinner(matchId, teamId, btn) {
             const card = document.getElementById(`card_${matchId}`);
             if (card.dataset.locked === "true") return;
@@ -1251,6 +1263,7 @@
             } catch (error) { console.error("Erreur :", error); }
         }
 
+        // --- EXPORTATION DES CHOIX EN FICHIER CSV ---
         function exportPicksCSV() {
             const cards = document.querySelectorAll('[id^="card_"]');
             if (cards.length === 0) {
@@ -1262,6 +1275,7 @@
             cards.forEach(card => {
                 const teamId = card.dataset.winner || "";
                 const spread = card.dataset.spread || "";
+                // Format demandé : ID de l'équipe (provenant de Teams) suivi du spread (ex: DET-)
                 const line = teamId ? `${teamId}${spread}` : "";
                 csvRows.push(line);
             });
@@ -1280,76 +1294,81 @@
             link.click();
             document.body.removeChild(link);
         }
+async function exportLeaguePicksCard() {
+    const originalContainer = document.getElementById('league-container') || document.getElementById('leaguePicksContainer');
+    if (!originalContainer || originalContainer.children.length === 0) {
+        alert("Aucun choix à exporter !");
+        return;
+    }
 
-        async function exportLeaguePicksCard() {
-            const originalContainer = document.getElementById('league-container');
-            if (!originalContainer || originalContainer.children.length === 0) {
-                alert("Aucun choix à exporter !");
-                return;
-            }
+    // Sélection de la semaine pour le titre
+    const weekSelect = document.getElementById('week-selector');
+    const weekVal = weekSelect ? weekSelect.value : (typeof currentWeek !== 'undefined' ? currentWeek : '');
+    const weekNum = String(weekVal).replace(/\D/g, '') || '1';
 
-            const weekSelect = document.getElementById('week-selector');
-            const weekVal = weekSelect ? weekSelect.value : (typeof currentWeek !== 'undefined' ? currentWeek : '');
-            const weekNum = String(weekVal).replace(/\D/g, '') || '1';
+    // 1. Création du conteneur temporaire
+    const exportWrapper = document.createElement('div');
+    exportWrapper.style.position = 'absolute';
+    exportWrapper.style.left = '-9999px';
+    exportWrapper.style.top = '-9999px';
+    exportWrapper.style.width = '1600px'; // Élargi pour héberger 4 colonnes parfaitement
+    exportWrapper.style.backgroundColor = '#0d1117';
+    exportWrapper.style.padding = '24px';
+    exportWrapper.style.color = '#ffffff';
+    exportWrapper.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-            const exportWrapper = document.createElement('div');
-            exportWrapper.style.position = 'absolute';
-            exportWrapper.style.left = '-9999px';
-            exportWrapper.style.top = '-9999px';
-            exportWrapper.style.width = '1600px';
-            exportWrapper.style.backgroundColor = '#0d1117';
-            exportWrapper.style.padding = '24px';
-            exportWrapper.style.color = '#ffffff';
-            exportWrapper.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    // Entête et grille stricte à 4 colonnes
+    let exportHtml = `
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #30363d; padding-bottom: 12px;">
+            <h2 style="font-size: 28px; font-weight: bold; margin: 0; color: #58a6ff;">🏈 POOL NFL - SEMAINE ${weekNum}</h2>
+            <p style="font-size: 14px; color: #8b949e; margin-top: 4px;">Carte récapitulative des choix de la ligue</p>
+        </div>
+        <div style="display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 12px !important; width: 100% !important;">
+    `;
 
-            let exportHtml = `
-                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #30363d; padding-bottom: 12px;">
-                    <h2 style="font-size: 28px; font-weight: bold; margin: 0; color: #58a6ff;">🏈 POOL NFL - SEMAINE ${weekNum}</h2>
-                    <p style="font-size: 14px; color: #8b949e; margin-top: 4px;">Carte récapitulative des choix de la ligue</p>
-                </div>
-                <div style="display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 12px !important; width: 100% !important;">
-            `;
+    // 2. Duplication et intégration des cartes
+    const matchCards = originalContainer.querySelectorAll('.card-match');
+    matchCards.forEach(card => {
+        exportHtml += `
+            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); box-sizing: border-box;">
+                ${card.innerHTML}
+            </div>
+        `;
+    });
 
-            const matchCards = originalContainer.querySelectorAll('.card-match');
-            matchCards.forEach(card => {
-                exportHtml += `
-                    <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); box-sizing: border-box;">
-                        ${card.innerHTML}
-                    </div>
-                `;
-            });
+    exportHtml += `</div>`;
+    exportWrapper.innerHTML = exportHtml;
+    document.body.appendChild(exportWrapper);
 
-            exportHtml += `</div>`;
-            exportWrapper.innerHTML = exportHtml;
-            document.body.appendChild(exportWrapper);
+    // Ajustement des images
+    const images = exportWrapper.querySelectorAll('img');
+    images.forEach(img => {
+        img.crossOrigin = 'anonymous';
+    });
 
-            const images = exportWrapper.querySelectorAll('img');
-            images.forEach(img => {
-                img.crossOrigin = 'anonymous';
-            });
+    try {
+        // 3. Capture haute définition pour rendu 4 colonnes
+        const canvas = await html2canvas(exportWrapper, {
+            backgroundColor: '#0d1117',
+            scale: 2,
+            useCORS: true,
+            windowWidth: 1600 // Simule un grand écran pour empêcher tout retour à la ligne non désiré
+        });
 
-            try {
-                const canvas = await html2canvas(exportWrapper, {
-                    backgroundColor: '#0d1117',
-                    scale: 2,
-                    useCORS: true,
-                    windowWidth: 1600
-                });
+        // 4. Téléchargement de l'image PNG
+        const link = document.createElement('a');
+        link.download = `Pool_NFL_Semaine_${weekNum}_Choix.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
 
-                const link = document.createElement('a');
-                link.download = `Pool_NFL_Semaine_${weekNum}_Choix.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-
-            } catch (err) {
-                console.error("Erreur lors de la génération de l'image :", err);
-                alert("Impossible de générer l'image. Assurez-vous que html2canvas est bien chargé.");
-            } finally {
-                document.body.removeChild(exportWrapper);
-            }
-        }
-
-        async function loadMatches() {
+    } catch (err) {
+        console.error("Erreur lors de la génération de l'image :", err);
+        alert("Impossible de générer l'image. Assurez-vous que html2canvas est bien chargé.");
+    } finally {
+        document.body.removeChild(exportWrapper);
+    }
+}
+    async function loadMatches() {
             const container = document.getElementById('matches-container');
             container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement...</div>';
             try {
@@ -1357,6 +1376,7 @@
                 const existingPickDoc = await db.collection('Weekly_Picks').doc(pickDocId).get();
                 const existingPicks = existingPickDoc.exists ? existingPickDoc.data().picks || {} : {};
 
+                // Utilisation directe du tri Firestore via sortOrder[cite: 3]
                 const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).orderBy('sortOrder').get();
                 if (snapshot.empty) { container.innerHTML = `<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match.</div>`; return; }
 
@@ -1381,7 +1401,7 @@
 
                     container.innerHTML += `
                         <div class="card-match p-5 rounded-xl ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/10' : ''}" id="card_${match.id}" data-match-id="${match.id}" data-locked="${isMatchLocked}">
-                            ${isBonus ? '<div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1">⭐ MATCH BONUS (Rapporte des points doublés)</div>' : ''}
+                            ${isBonus ? '<div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1">⭐ MATCH BONUS (Rapporte 4 points)</div>' : ''}
                             ${isMatchLocked ? '<div class="text-[11px] font-bold text-red-400 mb-2">🔒 Match commencé - Choix verrouillé</div>' : ''}
                             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div class="w-full md:w-1/3">
@@ -1415,6 +1435,7 @@
             const container = document.getElementById('league-container');
             container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>';
             try {
+                // Utilisation directe du tri Firestore via sortOrder[cite: 3]
                 const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).orderBy('sortOrder').get();
                 if (matchesSnap.empty) {
                     container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Aucun match pour cette semaine.</div>';
@@ -1513,7 +1534,7 @@
                             <div class="flex flex-col md:flex-row justify-between items-center mb-3 pb-2 border-b border-[#30363d] text-xs gap-2">
                                 <div class="flex items-center gap-3">
                                     ${winnerBadgeHtml}
-                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
+                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS (4 pts) | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <span class="bg-[#21262d] px-2.5 py-1 rounded text-gray-300 border border-[#30363d] font-semibold">${scoreStr}</span>
@@ -1531,7 +1552,6 @@
                 container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-red-400">Erreur lors du chargement.</div>';
             }
         }    
-
         async function loadStandings() {
             const tbody = document.getElementById('standings-tbody');
             tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">Calcul en cours...</td></tr>`;
@@ -1573,81 +1593,103 @@
                 });
             } catch (error) { console.error("Erreur :", error); }
         }
-        
         async function calculateDraftPointsForWeek() {
-            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-            try {
-                const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
-                if (matchesSnap.empty) {
-                    alert("Aucun match trouvé pour cette semaine.");
-                    return;
-                }
-
-                const teamResultsThisWeek = {};
-
-                matchesSnap.forEach(doc => {
-                    const match = doc.data();
-                    const hasHomeScore = match.home_score !== undefined && match.home_score !== "" && match.home_score !== null;
-                    const hasAwayScore = match.away_score !== undefined && match.away_score !== "" && match.away_score !== null;
-
-                    if (hasHomeScore && hasAwayScore) {
-                        const homeScore = Number(match.home_score);
-                        const awayScore = Number(match.away_score);
-
-                        if (homeScore === 0 && awayScore === 0) {
-                            return; 
-                        }
-
-                        const homeTeamRef = match.home_team_id;
-                        const awayTeamRef = match.away_team_id;
-
-                        let homeTeamIdStr = typeof homeTeamRef === 'string' ? homeTeamRef.split('/').pop() : homeTeamRef?.id;
-                        let awayTeamIdStr = typeof awayTeamRef === 'string' ? awayTeamRef.split('/').pop() : awayTeamRef?.id;
-
-                        if (homeTeamRef && awayTeamRef && homeTeamIdStr && awayTeamIdStr) {
-                            let homeResult = "loss", awayResult = "loss";
-                            let homePts = -2, awayPts = -2;
-
-                            if (homeScore > awayScore) {
-                                homeResult = "win"; homePts = 5;
-                                awayResult = "loss"; awayPts = -2;
-                            } else if (awayScore > homeScore) {
-                                awayResult = "win"; awayPts = 5;
-                                homeResult = "loss"; homePts = -2;
-                            } else {
-                                homeResult = "tie"; homePts = 7;
-                                awayResult = "tie"; awayPts = 7;
-                            }
-
-                            teamResultsThisWeek[homeTeamIdStr] = { teamRef: homeTeamRef, result: homeResult, points: homePts };
-                            teamResultsThisWeek[awayTeamIdStr] = { teamRef: awayTeamRef, result: awayResult, points: awayPts };
-                        }
-                    }
-                });
-
-                const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
-
-                const batch = db.batch();
-                for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
-                    const docId = `${teamIdStr}_${weekIdClean}`;
-                    const docRef = db.collection('Draft_Team_Points').doc(docId);
-                    
-                    batch.set(docRef, {
-                        team_id: data.teamRef,
-                        week: currentWeek,
-                        result: data.result,
-                        points: data.points,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                }
-
-                await batch.commit();
-                alert("✅ Points de la draft mis à jour pour " + currentWeek + " !");
-            } catch (error) {
-                console.error("Erreur lors du calcul de la draft :", error);
-                alert("Erreur lors du calcul des points de la draft.");
-            }
+    if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+    try {
+        // 1. Récupérer tous les matchs de la semaine en cours
+        const matchesSnap = await db.collection('Matches').where('Week', '==', currentWeek).get();
+        if (matchesSnap.empty) {
+            alert("Aucun match trouvé pour cette semaine.");
+            return;
         }
+
+        const teamResultsThisWeek = {};
+
+        matchesSnap.forEach(doc => {
+            const match = doc.data();
+            const homeScore = Number(match.home_score);
+            const awayScore = Number(match.away_score);
+
+            if (match.home_score !== undefined && match.away_score !== undefined && match.home_score !== "" && match.away_score !== "") {
+                const homeTeamRef = match.home_team_id;
+                const awayTeamRef = match.away_team_id;
+
+                // Extraire proprement l'identifiant texte de l'équipe (ex: "KC") pour qu'il soit unique et stable
+                let homeTeamIdStr = typeof homeTeamRef === 'string' ? homeTeamRef.split('/').pop() : homeTeamRef?.id;
+                let awayTeamIdStr = typeof awayTeamRef === 'string' ? awayTeamRef.split('/').pop() : awayTeamRef?.id;
+
+                if (homeTeamRef && awayTeamRef && homeTeamIdStr && awayTeamIdStr) {
+                    let homeResult = "loss", awayResult = "loss";
+                    let homePts = -2, awayPts = -2;
+
+                    if (homeScore > awayScore) {
+                        homeResult = "win"; homePts = 5;
+                        awayResult = "loss"; awayPts = -2;
+                    } else if (awayScore > homeScore) {
+                        awayResult = "win"; awayPts = 5;
+                        homeResult = "loss"; homePts = -2;
+                    } else {
+                        homeResult = "tie"; homePts = 7;
+                        awayResult = "tie"; awayPts = 7;
+                    }
+
+                    teamResultsThisWeek[homeTeamIdStr] = { teamRef: homeTeamRef, result: homeResult, points: homePts };
+                    teamResultsThisWeek[awayTeamIdStr] = { teamRef: awayTeamRef, result: awayResult, points: awayPts };
+                }
+            }
+        });
+
+        // 2. Nettoyage de la semaine pour l'ID (ex: "Week 1" devient "Week_1")
+        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
+
+        const batch = db.batch();
+        for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
+            // L'ID du document est STRICTEMENT unique par équipe et par semaine (ex: "KC_Week_1")
+            const docId = `${teamIdStr}_${weekIdClean}`;
+            const docRef = db.collection('Draft_Team_Points').doc(docId);
+            
+            // Avec { merge: true }, si le document existe déjà, il est mis à jour. S'il n'existe pas, il est créé. Jamais de doublon.
+            batch.set(docRef, {
+                team_id: data.teamRef,
+                week: currentWeek,
+                result: data.result,
+                points: data.points,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        await batch.commit();
+        alert("✅ Points de la draft mis à jour avec succès pour " + currentWeek + " (aucun doublon) !");
+    } catch (error) {
+        console.error("Erreur lors du calcul de la draft :", error);
+        alert("Erreur lors du calcul des points de la draft.");
+    }
+}
+
+        // 2. Enregistrer les résultats dans la collection "Draft_Team_Points"
+        // On nettoie la chaîne currentWeek pour l'ID (ex: "Week 1" devient "Week_1" ou on garde tel quel selon ta préférence)
+        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
+
+        const batch = db.batch();
+        for (const [teamId, data] of Object.entries(teamResultsThisWeek)) {
+            const docId = `${teamId}_${weekIdClean}`;
+            const docRef = db.collection('Draft_Team_Points').doc(docId);
+            batch.set(docRef, {
+                team_id: teamId,
+                week: currentWeek,
+                result: data.result,
+                points: data.points,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
+        await batch.commit();
+        alert("✅ Points de la draft calculés et enregistrés avec succès pour " + currentWeek + " !");
+    } catch (error) {
+        console.error("Erreur lors du calcul de la draft :", error);
+        alert("Erreur lors du calcul des points de la draft.");
+    }
+}
     </script>
 </body>
 </html>
