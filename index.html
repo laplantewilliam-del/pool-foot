@@ -1593,6 +1593,7 @@ async function exportLeaguePicksCard() {
                 });
             } catch (error) { console.error("Erreur :", error); }
         }
+        
         async function calculateDraftPointsForWeek() {
     if (!currentUserProfile || !currentUserProfile.isAdmin) return;
     try {
@@ -1668,83 +1669,6 @@ async function exportLeaguePicksCard() {
 
         await batch.commit();
         alert("✅ Points de la draft mis à jour pour " + currentWeek + " (0-0 ignoré) !");
-    } catch (error) {
-        console.error("Erreur lors du calcul de la draft :", error);
-        alert("Erreur lors du calcul des points de la draft.");
-    }
-}
-
-        // 2. Enregistrement propre sans doublons
-        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
-
-        const batch = db.batch();
-        for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
-            const docId = `${teamIdStr}_${weekIdClean}`;
-            const docRef = db.collection('Draft_Team_Points').doc(docId);
-            
-            batch.set(docRef, {
-                team_id: data.teamRef,
-                week: currentWeek,
-                result: data.result,
-                points: data.points,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        }
-
-        await batch.commit();
-        alert("✅ Points de la draft mis à jour pour " + currentWeek + " (0-0 ignoré) !");
-    } catch (error) {
-        console.error("Erreur lors du calcul de la draft :", error);
-        alert("Erreur lors du calcul des points de la draft.");
-    }
-}
-
-        // 2. Nettoyage de la semaine pour l'ID (ex: "Week 1" devient "Week_1")
-        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
-
-        const batch = db.batch();
-        for (const [teamIdStr, data] of Object.entries(teamResultsThisWeek)) {
-            // L'ID du document est STRICTEMENT unique par équipe et par semaine (ex: "KC_Week_1")
-            const docId = `${teamIdStr}_${weekIdClean}`;
-            const docRef = db.collection('Draft_Team_Points').doc(docId);
-            
-            // Avec { merge: true }, si le document existe déjà, il est mis à jour. S'il n'existe pas, il est créé. Jamais de doublon.
-            batch.set(docRef, {
-                team_id: data.teamRef,
-                week: currentWeek,
-                result: data.result,
-                points: data.points,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        }
-
-        await batch.commit();
-        alert("✅ Points de la draft mis à jour avec succès pour " + currentWeek + " (aucun doublon) !");
-    } catch (error) {
-        console.error("Erreur lors du calcul de la draft :", error);
-        alert("Erreur lors du calcul des points de la draft.");
-    }
-}
-
-        // 2. Enregistrer les résultats dans la collection "Draft_Team_Points"
-        // On nettoie la chaîne currentWeek pour l'ID (ex: "Week 1" devient "Week_1" ou on garde tel quel selon ta préférence)
-        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
-
-        const batch = db.batch();
-        for (const [teamId, data] of Object.entries(teamResultsThisWeek)) {
-            const docId = `${teamId}_${weekIdClean}`;
-            const docRef = db.collection('Draft_Team_Points').doc(docId);
-            batch.set(docRef, {
-                team_id: teamId,
-                week: currentWeek,
-                result: data.result,
-                points: data.points,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        }
-
-        await batch.commit();
-        alert("✅ Points de la draft calculés et enregistrés avec succès pour " + currentWeek + " !");
     } catch (error) {
         console.error("Erreur lors du calcul de la draft :", error);
         alert("Erreur lors du calcul des points de la draft.");
