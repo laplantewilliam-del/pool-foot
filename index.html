@@ -1665,32 +1665,6 @@ async function exportLeaguePicksCard() {
         alert("Erreur lors du calcul des points de la draft.");
     }
 }
-
-        // 2. Enregistrer les résultats dans la collection "Draft_Team_Points"
-        // On nettoie la chaîne currentWeek pour l'ID (ex: "Week 1" devient "Week_1" ou on garde tel quel selon ta préférence)
-        const weekIdClean = currentWeek.replace(/\s+/g, '_'); 
-
-        const batch = db.batch();
-        for (const [teamId, data] of Object.entries(teamResultsThisWeek)) {
-            const docId = `${teamId}_${weekIdClean}`;
-            const docRef = db.collection('Draft_Team_Points').doc(docId);
-            batch.set(docRef, {
-                team_id: teamId,
-                week: currentWeek,
-                result: data.result,
-                points: data.points,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        }
-
-        await batch.commit();
-        alert("✅ Points de la draft calculés et enregistrés avec succès pour " + currentWeek + " !");
-    } catch (error) {
-        console.error("Erreur lors du calcul de la draft :", error);
-        alert("Erreur lors du calcul des points de la draft.");
-    }
-}
-        
     </script>
 </body>
 </html>
