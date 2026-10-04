@@ -1047,52 +1047,7 @@ async function generateSortOrderForMatches() {
             } catch (error) { console.error("Erreur :", error); }
         }
 
-        async function loadAdminMatches() {
-            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-            const container = document.getElementById('admin-matches-container');
-            container.innerHTML = '<div class="text-center text-gray-400">Chargement...</div>';
-            try {
-                const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).get();
-                if (snapshot.empty) { container.innerHTML = `<div class="text-center text-gray-400">Aucun match.</div>`; return; }
-                
-                let matchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                matchesList.sort((a, b) => {
-                    let dateA = a.gameDate && typeof a.gameDate.toDate === 'function' ? a.gameDate.toDate() : (a.gameDate ? new Date(a.gameDate) : new Date(0));
-                    let dateB = b.gameDate && typeof b.gameDate.toDate === 'function' ? b.gameDate.toDate() : (b.gameDate ? new Date(b.gameDate) : new Date(0));
-                    return dateA - dateB;
-                });
-
-                container.innerHTML = '';
-                const teamCache = {};
-
-                for (const match of matchesList) {
-                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
-                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
-                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
-                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
-
-                    container.innerHTML += `
-                        <div class="card-match p-4 rounded-lg flex flex-col md:flex-row justify-between items-center gap-4 bg-[#161b22]">
-                            <div class="w-full md:w-1/3 flex items-center gap-3">
-                                <div class="flex items-center gap-1">
-                                    <img src="${awayTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
-                                    <span class="text-white font-semibold text-xs">@</span>
-                                    <img src="${homeTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
-                                </div>
-                                <div>
-                                    <div class="text-white font-semibold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
-                                    <div class="text-xs text-blue-400">📅 ${dateStr}</div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <input type="number" id="admin_away_${match.id}" value="${match.away_score !== undefined ? match.away_score : ''}" class="w-16 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1" placeholder="Vis">
-                                <input type="number" id="admin_home_${match.id}" value="${match.home_score !== undefined ? match.home_score : ''}" class="w-16 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1" placeholder="Rec">
-                            </div>
-                            <button onclick="saveMatchScore('${match.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded">Enregistrer & Calculer</button>
-                        </div>`;
-                }
-            } catch (error) { console.error("Erreur :", error); }
-        }
+        
 
         async function getTeamInfoCached(teamRef, cache) {
             let teamId = typeof teamRef === 'string' ? teamRef.split('/').pop() : teamRef?.id;
@@ -1110,18 +1065,90 @@ async function generateSortOrderForMatches() {
             return cache[teamId];
         }
 
+       async function loadAdminMatches() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const container = document.getElementById('admin-matches-container');
+            container.innerHTML = '<div class="text-center text-gray-400">Chargement...</div>';
+            try {
+                // Utilisation du tri par sortOrder dans l'admin
+                const snapshot = await db.collection('Matches').where('Week', '==', currentWeek).orderBy('sortOrder').get();
+                if (snapshot.empty) { container.innerHTML = `<div class="text-center text-gray-400">Aucun match.</div>`; return; }
+                
+                let matchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                container.innerHTML = '';
+                const teamCache = {};
+
+                for (const match of matchesList) {
+                    const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
+                    const homeTeam = await getTeamInfoCached(match.home_team_id, teamCache);
+                    let dateObj = match.gameDate && typeof match.gameDate.toDate === 'function' ? match.gameDate.toDate() : (match.gameDate ? new Date(match.gameDate) : null);
+                    let dateStr = dateObj ? dateObj.toLocaleString('fr-FR', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Horaire non défini";
+                    
+                    const isBonusChecked = match.is_bonus_game === true ? 'checked' : '';
+                    const sortOrderVal = match.sortOrder !== undefined ? match.sortOrder : '';
+
+                    container.innerHTML += `
+                        <div class="card-match p-4 rounded-lg flex flex-col md:flex-row justify-between items-center gap-4 bg-[#161b22]">
+                            <div class="w-full md:w-1/3 flex items-center gap-3">
+                                <div class="flex items-center gap-1">
+                                    <img src="${awayTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                                    <span class="text-white font-semibold text-xs">@</span>
+                                    <img src="${homeTeam.logo}" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
+                                    <div class="text-xs text-blue-400">📅 ${dateStr}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[10px] text-gray-400">Ordre:</span>
+                                    <input type="number" id="admin_sort_${match.id}" value="${sortOrderVal}" class="w-14 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1 text-xs" placeholder="Sort">
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="checkbox" id="admin_bonus_${match.id}" ${isBonusChecked} class="w-4 h-4 accent-amber-500">
+                                    <label for="admin_bonus_${match.id}" class="text-xs text-amber-300 font-semibold">Bonus ⭐</label>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="admin_away_${match.id}" value="${match.away_score !== undefined ? match.away_score : ''}" class="w-14 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1 text-xs" placeholder="Vis">
+                                    <span class="text-gray-400">-</span>
+                                    <input type="number" id="admin_home_${match.id}" value="${match.home_score !== undefined ? match.home_score : ''}" class="w-14 bg-[#21262d] border border-[#30363d] text-white text-center rounded px-2 py-1 text-xs" placeholder="Rec">
+                                </div>
+                            </div>
+                            <button onclick="saveMatchScore('${match.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded">Enregistrer & Calculer</button>
+                        </div>`;
+                }
+            } catch (error) { console.error("Erreur :", error); }
+        }
+
         async function saveMatchScore(matchId) {
             if (!currentUserProfile || !currentUserProfile.isAdmin) return;
             const awayVal = document.getElementById(`admin_away_${matchId}`).value.trim();
             const homeVal = document.getElementById(`admin_home_${matchId}`).value.trim();
-            if (awayVal === '' || homeVal === '') { alert("Entrez les deux scores."); return; }
+            const sortVal = document.getElementById(`admin_sort_${matchId}`).value.trim();
+            const bonusVal = document.getElementById(`admin_bonus_${matchId}`).checked;
 
             try {
-                await db.collection('Matches').doc(matchId).update({ away_score: Number(awayVal), home_score: Number(homeVal) });
+                const updateData = {
+                    is_bonus_game: bonusVal
+                };
+                if (awayVal !== '') updateData.away_score = Number(awayVal);
+                else updateData.away_score = firebase.firestore.FieldValue.delete();
+
+                if (homeVal !== '') updateData.home_score = Number(homeVal);
+                else updateData.home_score = firebase.firestore.FieldValue.delete();
+
+                if (sortVal !== '') updateData.sortOrder = Number(sortVal);
+
+                await db.collection('Matches').doc(matchId).update(updateData);
                 await processWeekCalculations();
-                alert("✅ Score enregistré et calculé !");
+                alert("✅ Match mis à jour, enregistré et calculé !");
                 loadAdminMatches();
-            } catch (error) { console.error("Erreur :", error); }
+            } catch (error) { 
+                console.error("Erreur :", error); 
+                alert("Erreur lors de l'enregistrement.");
+            }
         }
 
         async function recalculateEntireWeek() {
