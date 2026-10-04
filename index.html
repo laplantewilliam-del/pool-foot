@@ -1,4 +1,347 @@
-<!-- SDK Firebase Compat -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool NFL - Admin & Grille</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; }
+        .card-match { background-color: #161b22; border: 1px solid #30363d; }
+        th { cursor: pointer; user-select: none; }
+        th:hover { background-color: #30363d; }
+        .group-a-bg { background-color: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.4); }
+        .group-b-bg { background-color: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); }
+        .group-c-bg { background-color: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); }
+        .group-d-bg { background-color: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <!-- ÉCRAN DE CONNEXION AVEC MOT DE PASSE -->
+    <div id="login-screen" class="fixed inset-0 bg-[#0d1117] z-50 flex items-center justify-center p-4">
+        <div class="card-match p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
+            <h2 class="text-2xl font-bold text-white mb-2">🏈 Connexion au Pool NFL</h2>
+            <p class="text-gray-400 text-sm mb-6">Entre ton identifiant et ton mot de passe.</p>
+            
+            <input type="text" id="username-input" placeholder="Identifiant (ex: Will91)" 
+                class="w-full bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500 mb-3">
+            
+            <input type="password" id="password-input" placeholder="Mot de passe" 
+                class="w-full bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500 mb-6">
+            
+            <button onclick="handleLogin()" class="w-full bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 rounded-lg transition shadow-md">
+                Se connecter
+            </button>
+        </div>
+    </div>
+
+    <!-- APPLICATION PRINCIPALE -->
+    <div id="app-content" class="max-w-6xl mx-auto p-6 hidden">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                    📋 Pool NFL - <span id="current-week-title">Semaine 1</span>
+                </h1>
+                <p class="text-xs text-gray-400 mt-1">Connecté en tant que : <span id="display-username" class="text-blue-400 font-semibold"></span> <span id="admin-badge" class="hidden bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold ml-1">ADMIN</span> (<a href="#" onclick="logout()" class="underline hover:text-white">Déconnexion</a>)</p>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex bg-[#161b22] p-1.5 rounded-xl border border-[#30363d] gap-1.5 items-center flex-wrap shadow-md">
+                    <button onclick="switchTab('home')" id="tab-home" class="px-4 py-2 rounded-lg text-xs font-bold bg-[#1f883d] text-white transition flex items-center gap-1.5 shadow">🏠 Accueil</button>
+                    <button onclick="switchTab('my-picks')" id="tab-my-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🎯 Mes Choix</button>
+                    <button onclick="switchTab('standings')" id="tab-standings" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">🏆 Classement</button>
+                    <button onclick="switchTab('league-picks')" id="tab-league-picks" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">Choix de la Ligue</button>
+                    <button onclick="switchTab('draft')" id="tab-draft" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center gap-1.5">📋 Draft</button>
+                    <div id="admin-tab-container"></div>
+                </div>
+
+                <select id="week-selector" onchange="changeWeek(this.value)" class="bg-[#21262d] text-white border border-[#30363d] rounded-xl px-4 py-2.5 text-sm focus:outline-none shadow-md font-semibold">
+                    <option value="Week 1" selected>Semaine 1</option>
+                    <option value="Week 2">Semaine 2</option>
+                    <option value="Week 3">Semaine 3</option>
+                    <option value="Week 4">Semaine 4</option>
+                    <option value="Week 5">Semaine 5</option>
+                    <option value="Week 6">Semaine 6</option>
+                    <option value="Week 7">Semaine 7</option>
+                    <option value="Week 8">Semaine 8</option>
+                    <option value="Week 9">Semaine 9</option>
+                    <option value="Week 10">Semaine 10</option>
+                    <option value="Week 11">Semaine 11</option>
+                    <option value="Week 12">Semaine 12</option>
+                    <option value="Week 13">Semaine 13</option>
+                    <option value="Week 14">Semaine 14</option>
+                    <option value="Week 15">Semaine 15</option>
+                    <option value="Week 16">Semaine 16</option>
+                    <option value="Week 17">Semaine 17</option>
+                    <option value="Week 18">Semaine 18</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- VUE ACCUEIL -->
+        <div id="view-home" class="space-y-6">
+            <div class="card-match p-6 rounded-xl bg-gradient-to-r from-[#161b22] to-[#1f242d] border border-[#30363d]">
+                <h2 class="text-xl font-bold text-white mb-1">👋 Tableau de bord de la Ligue, <span id="welcome-username" class="text-blue-400"></span></h2>
+                <p class="text-xs text-gray-400">Retrouve ci-dessous les analyses, statistiques avancées et le suivi de la compétition.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-blue-400 mb-1">📊 1. Tes Performances (Points par Semaine)</h3>
+                        <p class="text-xs text-gray-400 mb-4">Évolution de tes points cumulés au fil des semaines.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="userStatsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-green-400 mb-1">🏆 2. Comparatif Total de la Ligue</h3>
+                        <p class="text-xs text-gray-400 mb-4">Classement des points totaux des participants.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="leagueStatsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-purple-400 mb-1">📈 3. Course au Titre (Évolution de la Ligue)</h3>
+                        <p class="text-xs text-gray-400 mb-4">Comparaison de la progression de tous les joueurs semaine après semaine.</p>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="raceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-amber-400 mb-1">🛡️ 4. Suivi Global du Survivor</h3>
+                        <p class="text-xs text-gray-400 mb-3">Statut actuel des participants et équipes choisies.</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-[#30363d]">
+                                    <th class="p-2">Joueur</th>
+                                    <th class="p-2 text-center">Statut</th>
+                                    <th class="p-2">Historique / Semaine actuelle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="home-survivor-tbody" class="divide-y divide-[#30363d]">
+                                <tr><td colspan="3" class="p-4 text-center text-gray-400">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-cyan-400 mb-1">🎯 5. Popularité des Choix ("Contre la Vague")</h3>
+                        <p class="text-xs text-gray-400 mb-3">Pour la semaine sélectionnée, qui a choisi quelle équipe ?</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto" id="home-popularity-container">
+                        <div class="text-center text-gray-400 text-xs p-4">Chargement...</div>
+                    </div>
+                </div>
+
+                <div class="card-match p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-pink-400 mb-1">⭐️ 6. Maîtrise des Spreads (+ / -)</h3>
+                        <p class="text-xs text-gray-400 mb-3">Classement des meilleurs prédicteurs d'écarts de la ligue.</p>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-[#30363d]">
+                                    <th class="p-2">Rang</th>
+                                    <th class="p-2">Participant</th>
+                                    <th class="p-2 text-center">Bons Spreads réussis</th>
+                                </tr>
+                            </thead>
+                            <tbody id="home-spread-tbody" class="divide-y divide-[#30363d]">
+                                <tr><td colspan="3" class="p-4 text-center text-gray-400">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE 1 : MES CHOIX -->
+        <div id="view-my-picks" class="hidden">
+            <div id="survivor-section-card" class="card-match p-5 rounded-xl mb-6 border-blue-500/40 bg-gradient-to-r from-[#161b22] to-[#111827]">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider">🛡️ Option Survivor</div>
+                        <div class="text-sm font-semibold text-white mt-1" id="survivor-instruction">Choisis une équipe pour cette semaine</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select id="survivor-select" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2 text-sm focus:outline-none">
+                            <option value="">-- Choisir une équipe --</option>
+                        </select>
+                        <button onclick="saveSurvivorPick()" id="survivor-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+                            Sauvegarder
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="matches-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des matchs...</div>
+            </div>
+            
+            <div class="mt-8 flex justify-end gap-3" id="save-picks-container">
+                <button onclick="exportPicksCSV()" class="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition text-sm">
+                    📄 Créer un fichier CSV
+                </button>
+                <button onclick="savePicks()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 transition text-sm">
+                    💾 Enregistrer mes choix de matchs
+                </button>
+            </div>
+        </div>
+
+        <!-- VUE CLASSEMENT -->
+        <div id="view-standings" class="hidden">
+            <div class="card-match rounded-xl overflow-hidden shadow-md">
+                <div class="bg-[#21262d] px-6 py-4 border-b border-[#30363d] flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        📊 Tableau des Meneurs - <span id="standings-week-title">Semaine 1</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-[#161b22] text-gray-400 text-xs border-b border-[#30363d]">
+                                <th class="p-4 font-semibold">Rang</th>
+                                <th class="p-4 font-semibold">Participant</th>
+                                <th class="p-4 font-semibold text-center">Matchs joués</th>
+                                <th class="p-4 font-semibold text-center">Bons vainqueurs</th>
+                                <th class="p-4 font-semibold text-right">Points totaux</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standings-tbody" class="divide-y divide-[#30363d] text-sm">
+                            <tr><td colspan="5" class="p-6 text-center text-gray-400">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE CHOIX DE LA LIGUE -->
+        <div id="view-league-picks" class="hidden">
+            <div class="flex justify-end mb-4">
+                <button onclick="exportLeaguePicksCard()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all">
+                    📸 Télécharger la Carte Messenger
+                </button>
+            </div>
+            <div id="league-container" class="space-y-4">
+                <div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement des choix de la ligue...</div>
+            </div>
+        </div>
+
+        <!-- VUE DRAFT -->
+        <div id="view-draft" class="hidden space-y-6">
+            <div class="card-match p-6 rounded-xl bg-[#161b22] border-purple-500/40">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-purple-300">🎯 Choix Repêchage (Fiches de la saison)</h2>
+                        <p class="text-xs text-gray-400 mt-1">Règlement : 2 choix par groupe (A, B, C, D). Victoire = +5, Défaite = -2, Nul = +7.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="groups-grid-container"></div>
+            </div>
+
+            <div class="card-match rounded-xl overflow-hidden shadow-md">
+                <div class="bg-[#21262d] px-6 py-4 border-b border-[#30363d]">
+                    <h3 class="text-md font-bold text-white">📋 Tableau récapitulatif des choix de la ligue</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-[#161b22] text-gray-400 text-xs border-b border-[#30363d]">
+                                <th class="p-4 font-semibold">Participant</th>
+                                <th class="p-4 font-semibold">Groupe A (Jaune)</th>
+                                <th class="p-4 font-semibold">Groupe B (Bleu)</th>
+                                <th class="p-4 font-semibold">Groupe C (Violet)</th>
+                                <th class="p-4 font-semibold">Groupe D (Vert)</th>
+                                <th class="p-4 font-semibold text-right">Points Draft</th>
+                            </tr>
+                        </thead>
+                        <tbody id="draft-picks-tbody" class="divide-y divide-[#30363d] text-sm">
+                            <tr><td colspan="6" class="p-6 text-center text-gray-400">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE ADMIN -->
+        <div id="view-admin-panel" class="hidden space-y-6">
+            <div class="card-match p-6 rounded-xl bg-green-950/10 border-green-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-green-300">🔢 Administration - Générer le SortOrder</h2>
+                    <p class="text-xs text-gray-300 mt-1">Trie automatiquement tous les matchs et assigne un champ 'sortOrder' (1 à N) pour chaque semaine.</p>
+                </div>
+                <button onclick="generateSortOrderForMatches()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-5 py-3 rounded-lg shadow transition">
+                    ⚡ Générer les SortOrder
+                </button>
+            </div>
+
+            <div class="card-match p-6 rounded-xl bg-purple-950/20 border-purple-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-purple-300">🎯 Administration - Calcul du Draft</h2>
+                    <p class="text-xs text-gray-300 mt-1">Calcule et met à jour les points de la draft pour la semaine active ou pour l'ensemble de la saison.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="calculateDraftPointsForWeek()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-3 rounded-lg shadow transition">
+                        Calculer la semaine
+                    </button>
+                    <button onclick="calculateAllDraftPoints()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-3 rounded-lg shadow transition">
+                        Calculer tout (Saison)
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-match p-6 rounded-xl bg-blue-950/10 border-blue-500/40">
+                <h2 class="text-xl font-bold text-blue-300 mb-2">👤 Ajouter un nouveau joueur</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <input type="text" id="new-username" placeholder="Identifiant" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none">
+                    <input type="password" id="new-password" placeholder="Mot de passe" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none">
+                    <div class="flex items-center gap-2 bg-[#21262d] border border-[#30363d] rounded-lg px-4 py-2">
+                        <input type="checkbox" id="new-is-admin" class="w-4 h-4 accent-blue-600">
+                        <label for="new-is-admin" class="text-sm text-gray-300">Administrateur</label>
+                    </div>
+                </div>
+                <button onclick="addNewUser()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-lg transition shadow">
+                    ➕ Créer le joueur
+                </button>
+            </div>
+
+            <div class="card-match p-6 rounded-xl bg-amber-950/10 border-amber-500/40">
+                <div class="flex justify-between items-center mb-4 pb-4 border-b border-[#30363d]">
+                    <h2 class="text-xl font-bold text-amber-300">⚙️ Administration - Saisie des Scores</h2>
+                    <button onclick="recalculateEntireWeek()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">
+                        🔄 Recalculer toute la semaine
+                    </button>
+                </div>
+                <div id="admin-matches-container" class="space-y-4">
+                    <div class="text-center text-gray-400 p-4">Chargement...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SDK Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
@@ -34,7 +377,7 @@
                     document.getElementById('welcome-username').innerText = currentUserId;
                     
                     applyAdminUIVisibility();
-                    await loadCurrentView();
+                    loadCurrentView();
                 } else {
                     localStorage.removeItem('nfl_pool_user_id');
                 }
@@ -91,7 +434,7 @@
                 document.getElementById('welcome-username').innerText = currentUserId;
                 
                 applyAdminUIVisibility();
-                await loadCurrentView();
+                loadCurrentView();
             } catch (error) { 
                 console.error("Erreur connexion :", error); 
                 alert("Erreur de connexion à la base de données.");
@@ -103,15 +446,15 @@
             location.reload();
         }
 
-        async function changeWeek(week) {
+        function changeWeek(week) {
             currentWeek = week;
             const weekText = week.replace('Week ', 'Semaine ');
             document.getElementById('current-week-title').innerText = weekText;
             document.getElementById('standings-week-title').innerText = weekText;
-            await loadCurrentView();
+            loadCurrentView();
         }
 
-        async function switchTab(tab) {
+        function switchTab(tab) {
             if (tab === 'admin-panel' && (!currentUserProfile || !currentUserProfile.isAdmin)) return;
 
             currentTab = tab;
@@ -132,18 +475,18 @@
             ['view-home', 'view-my-picks', 'view-standings', 'view-league-picks', 'view-draft', 'view-admin-panel'].forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById(`view-${tab}`).classList.remove('hidden');
 
-            await loadCurrentView();
+            loadCurrentView();
         }
 
-        async function loadCurrentView() {
-            if (currentTab === 'home') await loadHomeStats();
-            else if (currentTab === 'my-picks') { await loadMatches(); await loadSurvivorWidget(); }
-            else if (currentTab === 'standings') await loadStandings();
-            else if (currentTab === 'league-picks') await loadLeaguePicks();
-            else if (currentTab === 'draft') await loadDraftView();
+        function loadCurrentView() {
+            if (currentTab === 'home') loadHomeStats();
+            else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
+            else if (currentTab === 'standings') loadStandings();
+            else if (currentTab === 'league-picks') loadLeaguePicks();
+            else if (currentTab === 'draft') loadDraftView();
             else if (currentTab === 'admin-panel') {
-                if (currentUserProfile && currentUserProfile.isAdmin) await loadAdminMatches();
-                else await switchTab('home');
+                if (currentUserProfile && currentUserProfile.isAdmin) loadAdminMatches();
+                else switchTab('home');
             }
         }
 
@@ -372,7 +715,7 @@
                 }
 
                 await batch.commit();
-                alert(`✅ ${updatedCount} matchs mis à jour avec succès avec leur champ 'sortOrder' ![cite: 3]`);
+                alert(`✅ ${updatedCount} matchs mis à jour avec succès avec leur champ 'sortOrder' !`);
             } catch (error) {
                 console.error("Erreur lors de la génération des sortOrder :", error);
                 alert("Une erreur est survenue lors de la génération.");
@@ -530,7 +873,7 @@
                     total_user_points: 0,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await loadDraftView();
+                loadDraftView();
             } catch (error) { console.error("Erreur :", error); }
         }
 
@@ -550,13 +893,13 @@
 
             try {
                 await db.collection('Draft_Picks').doc(docId).delete();
-                await loadDraftView();
+                loadDraftView();
             } catch (error) { console.error("Erreur :", error); }
         }
 
         async function calculateAllDraftPoints() {
             if (!currentUserProfile || !currentUserProfile.isAdmin) return;
-            if (!confirm("Lancer le calcul des points du Draft ?")) return;
+            if (!confirm("Lancer le calcul global des points de la Draft pour toute la saison ?")) return;
             try {
                 const matchesSnap = await db.collection('Matches').get();
                 const teamRecord = {};
@@ -565,7 +908,7 @@
                     const homeScore = m.home_score !== undefined && m.home_score !== "" ? Number(m.home_score) : null;
                     const awayScore = m.away_score !== undefined && m.away_score !== "" ? Number(m.away_score) : null;
 
-                    if (homeScore !== null && awayScore !== null) {
+                    if (homeScore !== null && awayScore !== null && !(homeScore === 0 && awayScore === 0)) {
                         const homeId = typeof m.home_team_id === 'string' ? m.home_team_id.split('/').pop() : m.home_team_id.id;
                         const awayId = typeof m.away_team_id === 'string' ? m.away_team_id.split('/').pop() : m.away_team_id.id;
 
@@ -605,8 +948,8 @@
                 }
 
                 await batch.commit();
-                alert("✅ Calcul effectué !");
-                await loadDraftView();
+                alert("✅ Calcul global du Draft effectué !");
+                loadDraftView();
             } catch (error) { console.error("Erreur :", error); }
         }
 
@@ -696,7 +1039,7 @@
                     await db.collection('Survivor_Picks').add({ user_id: userRef, Week: currentWeek, chosen_team_id: teamRef, Status: "En cours", LastModifiedDate: new Date() });
                 }
                 alert("✅ Choix Survivor enregistré !");
-                await loadSurvivorWidget();
+                loadSurvivorWidget();
             } catch (error) { console.error("Erreur :", error); }
         }
 
@@ -794,7 +1137,7 @@
                 await db.collection('Matches').doc(matchId).update(updateData);
                 await processWeekCalculations();
                 alert("✅ Match mis à jour, enregistré et calculé !");
-                await loadAdminMatches();
+                loadAdminMatches();
             } catch (error) { 
                 console.error("Erreur :", error); 
                 alert("Erreur lors de l'enregistrement.");
@@ -807,7 +1150,7 @@
             try {
                 await processWeekCalculations();
                 alert("✅ Recalcul complet effectué !");
-                await loadStandings();
+                loadStandings();
             } catch (error) { console.error("Erreur :", error); }
         }
 
@@ -939,7 +1282,7 @@
         }
 
         async function exportLeaguePicksCard() {
-            const originalContainer = document.getElementById('league-container') || document.getElementById('leaguePicksContainer');
+            const originalContainer = document.getElementById('league-container');
             if (!originalContainer || originalContainer.children.length === 0) {
                 alert("Aucun choix à exporter !");
                 return;
@@ -1038,7 +1381,7 @@
 
                     container.innerHTML += `
                         <div class="card-match p-5 rounded-xl ${isBonus ? 'border-2 border-amber-400 shadow-lg bg-amber-950/10' : ''}" id="card_${match.id}" data-match-id="${match.id}" data-locked="${isMatchLocked}">
-                            ${isBonus ? '<div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1">⭐ MATCH BONUS (Rapporte 4 points)</div>' : ''}
+                            ${isBonus ? '<div class="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1">⭐ MATCH BONUS (Rapporte des points doublés)</div>' : ''}
                             ${isMatchLocked ? '<div class="text-[11px] font-bold text-red-400 mb-2">🔒 Match commencé - Choix verrouillé</div>' : ''}
                             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div class="w-full md:w-1/3">
@@ -1170,7 +1513,7 @@
                             <div class="flex flex-col md:flex-row justify-between items-center mb-3 pb-2 border-b border-[#30363d] text-xs gap-2">
                                 <div class="flex items-center gap-3">
                                     ${winnerBadgeHtml}
-                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS (4 pts) | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
+                                    <span class="font-bold text-white text-sm">${isBonus ? '⭐ MATCH BONUS | ' : `MATCH #${matchCounter} | `} ${awayTeam.name} at ${homeTeam.name}</span>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <span class="bg-[#21262d] px-2.5 py-1 rounded text-gray-300 border border-[#30363d] font-semibold">${scoreStr}</span>
@@ -1218,7 +1561,6 @@
 
                 userStats.sort((a, b) => b.points - a.points);
                 tbody.innerHTML = '';
-                userStats.userStats = userStats; // Safe reference
                 userStats.forEach((stat, index) => {
                     tbody.innerHTML += `
                         <tr class="border-b border-[#30363d] hover:bg-[#21262d]/50 transition">
@@ -1270,8 +1612,8 @@
                                 homeResult = "win"; homePts = 5;
                                 awayResult = "loss"; awayPts = -2;
                             } else if (awayScore > homeScore) {
-                                awayResult = "loss"; awayPts = -2;
-                                homeResult = "win"; homePts = 5;
+                                awayResult = "win"; awayPts = 5;
+                                homeResult = "loss"; homePts = -2;
                             } else {
                                 homeResult = "tie"; homePts = 7;
                                 awayResult = "tie"; awayPts = 7;
@@ -1300,10 +1642,12 @@
                 }
 
                 await batch.commit();
-                alert("✅ Points de la draft mis à jour pour " + currentWeek + " (0-0 ignoré) !");
+                alert("✅ Points de la draft mis à jour pour " + currentWeek + " !");
             } catch (error) {
                 console.error("Erreur lors du calcul de la draft :", error);
                 alert("Erreur lors du calcul des points de la draft.");
             }
         }
     </script>
+</body>
+</html>
