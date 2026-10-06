@@ -436,6 +436,45 @@
         let raceChartInstance = null;
         let draftRaceChartInstance = null;
 
+        // ===== SEMAINE EN COURS À L'OUVERTURE =====
+        let currentWeekInitialized = false;
+
+        // Semaine en cours = première semaine dont le dernier match n'est pas terminé depuis plus de 12 h
+        // (la semaine bascule donc le mardi matin, après le match du lundi soir)
+        function computeCurrentWeekFromMatches(matchesData, now) {
+            const BUFFER_MS = 12 * 60 * 60 * 1000;
+            const lastGameByWeek = {};
+            matchesData.forEach(m => {
+                const wn = parseInt(String(m.Week || '').replace(/\D/g, ''), 10);
+                if (!wn || !m.gameDate) return;
+                const d = typeof m.gameDate.toDate === 'function' ? m.gameDate.toDate() : new Date(m.gameDate);
+                if (isNaN(d.getTime())) return;
+                if (!lastGameByWeek[wn] || d > lastGameByWeek[wn]) lastGameByWeek[wn] = d;
+            });
+            const weeks = Object.keys(lastGameByWeek).map(Number).sort((a, b) => a - b);
+            if (weeks.length === 0) return null;
+            const found = weeks.find(w => now.getTime() <= lastGameByWeek[w].getTime() + BUFFER_MS);
+            return found !== undefined ? found : weeks[weeks.length - 1];   // saison terminée : dernière semaine
+        }
+
+        async function initCurrentWeek() {
+            if (currentWeekInitialized) return;
+            currentWeekInitialized = true;
+            try {
+                const snap = await db.collection('Matches').get();
+                const wn = computeCurrentWeekFromMatches(snap.docs.map(d => d.data()), new Date());
+                if (wn && wn >= 1 && wn <= 18) {
+                    currentWeek = `Week ${wn}`;
+                    const sel = document.getElementById('week-selector');
+                    if (sel) sel.value = currentWeek;
+                    document.getElementById('current-week-title').innerText = `Semaine ${wn}`;
+                    document.getElementById('standings-week-title').innerText = `Semaine ${wn}`;
+                }
+            } catch (error) {
+                console.error("Impossible de déterminer la semaine en cours (semaine 1 par défaut) :", error);
+            }
+        }
+
         window.onload = async function() {
             if (currentUserId) {
                 await fetchUserProfile(currentUserId);
@@ -446,6 +485,7 @@
                     document.getElementById('welcome-username').innerText = currentUserId;
                     
                     applyAdminUIVisibility();
+                    await initCurrentWeek();
                     loadCurrentView();
                 } else {
                     localStorage.removeItem('nfl_pool_user_id');
@@ -503,6 +543,7 @@
                 document.getElementById('welcome-username').innerText = currentUserId;
                 
                 applyAdminUIVisibility();
+                await initCurrentWeek();
                 loadCurrentView();
             } catch (error) { 
                 console.error("Erreur connexion :", error); 
