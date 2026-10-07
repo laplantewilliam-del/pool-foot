@@ -863,6 +863,7 @@
                 const batch = db.batch();
                 plan.updates.forEach(u => batch.update(u.ref, { home_score: u.home_score, away_score: u.away_score }));
                 await batch.commit();
+                teamFormCache = null;
 
                 await processWeekCalculations();   // même calcul que « Enregistrer & Calculer » (choix des joueurs, Survivor)
 
@@ -2458,6 +2459,7 @@ async function generateSortOrderForMatches() {
                 if (sortVal !== '') updateData.sortOrder = Number(sortVal);
 
                 await db.collection('Matches').doc(matchId).update(updateData);
+                teamFormCache = null;
                 await processWeekCalculations();
                 alert("✅ Match mis à jour, enregistré et calculé !");
                 loadAdminMatches();
@@ -2681,6 +2683,41 @@ async function exportLeaguePicksCard() {
         document.body.removeChild(exportWrapper);
     }
 }
+    // ===== FORME DES ÉQUIPES (5 derniers matchs, affichée sous chaque équipe dans Mes Choix) =====
+    let teamFormCache = null;   // { idÉquipe: [ {week, result, own, other, opp, isHome}, ... ] } trié par semaine
+
+    async function loadTeamForm() {
+        if (teamFormCache) return teamFormCache;
+        const snap = await db.collection('Matches').get();
+        const byTeam = {};
+        snap.forEach(d => {
+            const m = d.data();
+            const wn = parseInt(String(m.Week || '').replace(/\D/g, ''), 10);
+            const h = draftRefToId(m.home_team_id), a = draftRefToId(m.away_team_id);
+            if (!wn || !h || !a) return;
+            if (m.home_score === undefined || m.away_score === undefined || m.home_score === null || m.away_score === null || m.home_score === '' || m.away_score === '') return;
+            const hs = Number(m.home_score), as = Number(m.away_score);
+            if (isNaN(hs) || isNaN(as) || (hs === 0 && as === 0)) return;   // match pas encore joué
+            const add = (team, opp, own, other, isHome) => {
+                (byTeam[team] = byTeam[team] || []).push({ week: wn, result: own > other ? 'W' : (own < other ? 'L' : 'T'), own, other, opp, isHome });
+            };
+            add(h, a, hs, as, true);
+            add(a, h, as, hs, false);
+        });
+        Object.values(byTeam).forEach(arr => arr.sort((x, y) => x.week - y.week));
+        teamFormCache = byTeam;
+        return byTeam;
+    }
+
+    // Du plus ancien (gauche) au plus récent (droite), seulement les matchs AVANT la semaine affichée
+    function teamFormHtml(form, teamId, weekNum) {
+        const games = (form[teamId] || []).filter(g => g.week < weekNum).slice(-5);
+        if (games.length === 0) return '<div class="text-[10px] text-gray-600 mt-1">-</div>';
+        const color = { W: 'text-green-400', L: 'text-red-400', T: 'text-gray-400' };
+        const letters = games.map(g => `<span class="${color[g.result]}" title="Semaine ${g.week} : ${g.isHome ? 'vs' : '@'} ${escapeHtml(g.opp)} ${g.own}-${g.other}">${g.result}</span>`).join('<span class="text-gray-600">-</span>');
+        return `<div class="text-[11px] font-bold tracking-wide mt-1" title="Résultats des ${games.length} derniers matchs (du plus ancien au plus récent)">${letters}</div>`;
+    }
+
     async function loadMatches() {
             const container = document.getElementById('matches-container');
             container.innerHTML = '<div class="card-match p-6 rounded-xl text-center text-gray-400">Chargement...</div>';
@@ -2699,6 +2736,9 @@ async function exportLeaguePicksCard() {
                 const teamCache = {};
                 const maintenant = new Date();
                 const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+                const weekNum = parseInt(String(currentWeek).replace(/\D/g, ''), 10);
+                let teamForm = {};
+                try { teamForm = await loadTeamForm(); } catch (e) { console.error('Forme des équipes indisponible :', e); }
 
                 for (const match of matchesList) {
                     const awayTeam = await getTeamInfoCached(match.away_team_id, teamCache);
@@ -2721,16 +2761,22 @@ async function exportLeaguePicksCard() {
                                     <div class="text-white font-bold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
                                     <div class="text-xs text-blue-400 mt-0.5">📅 ${dateStr}</div>
                                 </div>
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex flex-col items-center">
                                     <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectWinner('${match.id}', '${awayTeam.id}', this)" class="team-btn-${match.id} flex items-center gap-2 px-4 py-2 rounded-lg ${matchPick.winner === awayTeam.id ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-sm border border-[#30363d]">
                                         <img src="${awayTeam.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
                                         <span>${awayTeam.name}</span>
                                     </button>
-                                    <span>at</span>
+                                    ${teamFormHtml(teamForm, awayTeam.id, weekNum)}
+                                    </div>
+                                    <span class="mt-2">at</span>
+                                    <div class="flex flex-col items-center">
                                     <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectWinner('${match.id}', '${homeTeam.id}', this)" class="team-btn-${match.id} flex items-center gap-2 px-4 py-2 rounded-lg ${matchPick.winner === homeTeam.id ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-sm border border-[#30363d]">
                                         <img src="${homeTeam.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'">
                                         <span>${homeTeam.name}</span>
                                     </button>
+                                ${teamFormHtml(teamForm, homeTeam.id, weekNum)}
+                                </div>
                                 </div>
                                 <div class="flex gap-1.5">
                                     <button type="button" ${isMatchLocked ? 'disabled' : ''} onclick="selectSpread('${match.id}', '+', this)" class="spread-btn-${match.id} px-3 py-1.5 rounded-lg ${matchPick.spread === '+' ? 'bg-[#1f883d]' : 'bg-[#21262d]'} ${isMatchLocked ? 'opacity-50 cursor-not-allowed' : 'text-white'} text-xs border border-[#30363d]">+</button>
