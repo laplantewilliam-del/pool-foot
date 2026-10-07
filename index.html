@@ -90,6 +90,25 @@
             </div>
 
 
+
+            <!-- BANDEAU : CHOIX MANQUANTS + COMPTE À REBOURS -->
+            <div id="missing-picks-banner" class="hidden card-match p-4 rounded-xl border border-blue-500/60 bg-blue-500/10"></div>
+
+            <!-- RÉCAP DE LA LIGUE (semaine précédente de la semaine sélectionnée, repliable) -->
+            <div id="home-recap" class="hidden card-match p-6 rounded-xl border border-amber-500/40 bg-gradient-to-br from-[#161b22] to-[#221c10]">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <button id="home-recap-toggle" onclick="toggleHomeRecap()" aria-expanded="true" title="Fermer la section" class="flex items-center gap-3 text-lg font-bold text-amber-300 hover:text-amber-200 transition text-left">
+                        <span>📰 Le récap de la Ligue</span>
+                        <span id="home-recap-week" class="text-sm font-semibold text-amber-400/80"></span>
+                        <span id="home-recap-arrow" class="text-base">▲</span>
+                    </button>
+                    <button id="home-recap-present" onclick="openRecapPresentation('home')" class="hidden bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-gray-200 text-xs font-bold px-3 py-2 rounded-lg transition">🖥️ Présenter</button>
+                </div>
+                <div id="home-recap-content" class="mt-3">
+                    <div id="home-recap-body"></div>
+                </div>
+            </div>
+
             <!-- SCORES NFL EN DIRECT (ESPN) -->
             <div id="home-live-scores" class="card-match p-6 rounded-xl border border-green-500/40 bg-gradient-to-br from-[#161b22] to-[#10201a]">
                 <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -352,6 +371,15 @@
         </div>
 
         <!-- VUE ADMIN -->
+        <!-- MODE PRÉSENTATION DU RÉCAP -->
+        <div id="recap-presentation" class="hidden fixed inset-0 z-50 bg-[#0d1117] overflow-y-auto">
+            <button onclick="closeRecapPresentation()" class="fixed top-4 right-4 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-gray-200 text-xs font-bold px-4 py-2 rounded-lg z-50">✕ Fermer (Échap)</button>
+            <div class="max-w-4xl mx-auto px-6 py-16 space-y-8">
+                <h1 id="recap-pres-title" class="font-serif text-3xl md:text-5xl font-extrabold text-amber-200 leading-tight"></h1>
+                <div id="recap-pres-body" class="space-y-6"></div>
+            </div>
+        </div>
+
         <div id="view-admin-panel" class="hidden space-y-6">
             <div class="card-match p-6 rounded-xl bg-green-950/10 border-green-500/40 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
@@ -406,6 +434,63 @@
                     <div class="text-center text-gray-400 p-4">Chargement...</div>
                 </div>
             </div>
+
+            <!-- RÉCAP DE LA LIGUE (section Admin) -->
+        <div id="admin-recap-section" class="space-y-6">
+            <div class="card-match p-6 rounded-xl border border-amber-500/40 bg-gradient-to-br from-[#161b22] to-[#221c10]">
+                <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-amber-300">📰 Récap de la Ligue</h2>
+                        <p class="text-xs text-gray-400 mt-1">Ce qui s'est passé entre les poolers pendant la semaine et ce qui départage le pointage.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="recap-week-select" onchange="renderRecapForWeek(this.value)" class="bg-[#21262d] text-white border border-[#30363d] rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none"></select>
+                        <button onclick="openRecapPresentation('tab')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition">🖥️ Présenter</button>
+                    </div>
+                </div>
+                <div id="recap-display"></div>
+            </div>
+
+            <!-- OUTILS ADMIN DU RÉCAP -->
+            <div id="recap-admin" class="hidden card-match p-6 rounded-xl border border-purple-500/40 bg-[#161b22] space-y-5">
+                <h3 class="text-sm font-bold text-purple-300">⚙️ Outils admin du récap</h3>
+
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-gray-300">1. Clé Gemini (gratuite, enregistrée dans ce navigateur seulement, jamais dans le fichier ni dans Firestore)</div>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <input id="recap-key-input" type="password" autocomplete="off" placeholder="Colle ta clé ici" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-3 py-2 text-xs w-64 focus:outline-none">
+                        <input id="recap-model-input" type="text" placeholder="Modèle" class="bg-[#21262d] border border-[#30363d] text-white rounded-lg px-3 py-2 text-xs w-44 focus:outline-none">
+                        <button onclick="saveGeminiKey()" class="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-gray-200 text-xs font-bold px-3 py-2 rounded-lg transition">Enregistrer</button>
+                        <button onclick="testGeminiKey()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">Tester la clé</button>
+                        <button onclick="clearGeminiKey()" class="bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition">Effacer</button>
+                    </div>
+                    <div id="recap-key-status" class="text-[11px] text-gray-400"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-gray-300">2. Générer un brouillon pour la semaine sélectionnée</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="generateRecapDraft('ai')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">✨ Générer avec l'IA</button>
+                        <button onclick="generateRecapDraft('template')" class="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-gray-200 text-xs font-bold px-4 py-2 rounded-lg transition">📝 Générer avec les gabarits</button>
+                        <button id="recap-unpublish-btn" onclick="unpublishRecap()" class="hidden bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition">🗑️ Retirer le récap publié</button>
+                    </div>
+                    <div id="recap-gen-status" class="text-[11px] text-gray-300"></div>
+                </div>
+
+                <div id="recap-draft" class="hidden space-y-2">
+                    <div class="text-xs font-bold text-gray-300">3. Relire, corriger et publier</div>
+                    <input id="recap-draft-title" type="text" class="w-full bg-[#21262d] border border-[#30363d] text-white rounded-lg px-3 py-2 text-sm font-bold focus:outline-none">
+                    <textarea id="recap-draft-body" rows="14" class="w-full bg-[#21262d] border border-[#30363d] text-gray-200 rounded-lg px-3 py-2 text-sm leading-relaxed focus:outline-none"></textarea>
+                    <button onclick="publishRecapDraft()" class="bg-[#1f883d] hover:bg-[#2ea043] text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow transition">💾 Publier</button>
+                </div>
+
+                <details class="text-xs text-gray-400">
+                    <summary class="cursor-pointer font-bold">Voir les faits calculés (ce que l'IA reçoit)</summary>
+                    <pre id="recap-facts-json" class="mt-2 p-3 bg-[#0d1117] border border-[#30363d] rounded-lg overflow-x-auto text-[10px] text-gray-300"></pre>
+                </details>
+            </div>
+        </div>
+
         </div>
     </div>
 
@@ -464,6 +549,7 @@
                 const snap = await db.collection('Matches').get();
                 const wn = computeCurrentWeekFromMatches(snap.docs.map(d => d.data()), new Date());
                 if (wn && wn >= 1 && wn <= 18) {
+                    detectedCurrentWeekNum = wn;
                     currentWeek = `Week ${wn}`;
                     const sel = document.getElementById('week-selector');
                     if (sel) sel.value = currentWeek;
@@ -589,13 +675,13 @@
         }
 
         function loadCurrentView() {
-            if (currentTab === 'home') { loadHomeStats(); loadHomeLiveScores(); loadHomeDraftDashboard(); }
+            if (currentTab === 'home') { loadMissingPicksBanner(); loadHomeRecap(); loadHomeStats(); loadHomeLiveScores(); loadHomeDraftDashboard(); }
             else if (currentTab === 'my-picks') { loadMatches(); loadSurvivorWidget(); }
             else if (currentTab === 'standings') loadStandings();
             else if (currentTab === 'league-picks') loadLeaguePicks();
             else if (currentTab === 'draft') loadDraftView();
             else if (currentTab === 'admin-panel') {
-                if (currentUserProfile && currentUserProfile.isAdmin) loadAdminMatches();
+                if (currentUserProfile && currentUserProfile.isAdmin) { loadAdminMatches(); loadRecapTab(); }
                 else switchTab('home');
             }
         }
@@ -791,6 +877,731 @@
                 if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
             }
         }
+
+        // ===== BANDEAU « CHOIX MANQUANTS » + RÉCAP DE LA LIGUE =====
+        let detectedCurrentWeekNum = null;   // semaine NFL en cours, déterminée à l'ouverture du site
+        let missingPicksTimer = null;
+        const HOME_RECAP_FRESH_MS = 2 * 24 * 3600 * 1000;   // le récap s'ouvre par défaut pendant 2 jours, puis reste fermé jusqu'à ce qu'on l'ouvre
+        const homeRecapChoice = {};   // choix manuel ouvert/fermé par semaine (valable jusqu'au rechargement de la page)
+        const homeRecapCache = {};    // récaps déjà chargés (publiés ou complets), pour éviter des lectures répétées
+        const recapState = { week: null, display: null, homeDisplay: null, facts: null, draftSource: null, published: false, populated: false };
+        const GEMINI_KEY_LS = 'recap_gemini_key', GEMINI_MODEL_LS = 'recap_gemini_model';
+        const GEMINI_MODEL_FALLBACKS = ['gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
+
+        // ----- Utilitaires -----
+        const recapToDate = v => { if (!v) return null; const d = typeof v.toDate === 'function' ? v.toDate() : new Date(v); return isNaN(d.getTime()) ? null : d; };
+        const recapWeekNum = label => parseInt(String(label).replace(/\D/g, ''), 10);
+        const recapPlural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+        const recapJoin = arr => arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' et ' + arr[arr.length - 1];
+        const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignoré */ } };
+        const lsDel = k => { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } };
+
+        function recapShortTeam(name) {
+            const n = String(name || '').trim();
+            const words = n.split(/\s+/);
+            if (words.length < 2) return n;
+            const city = words.slice(0, -1).join(' ');
+            return (city === 'New York' || city === 'Los Angeles') ? words[words.length - 1] : city;
+        }
+
+        function formatCountdown(ms) {
+            const total = Math.max(0, Math.floor(ms / 1000));
+            const d = Math.floor(total / 86400), h = Math.floor((total % 86400) / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+            const p = n => String(n).padStart(2, '0');
+            return d > 0 ? `${d} j ${p(h)} h ${p(m)} min` : `${p(h)}:${p(m)}:${p(s)}`;
+        }
+
+        // Le récap s'affiche sur l'Accueil le mardi et le mercredi seulement (heure de Toronto/Québec) : caché dès le jeudi
+        function isRecapWindowOpen(now) {
+            const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', weekday: 'short' }).format(now);
+            return wd === 'Tue' || wd === 'Wed';
+        }
+
+        function splitRecapParagraphs(body) {
+            return String(body || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+        }
+
+        // ===== BANDEAU « IL TE MANQUE X CHOIX » =====
+        function setWeekSilently(label) {
+            currentWeek = label;
+            const sel = document.getElementById('week-selector');
+            if (sel) sel.value = label;
+            const txt = `Semaine ${recapWeekNum(label)}`;
+            document.getElementById('current-week-title').innerText = txt;
+            document.getElementById('standings-week-title').innerText = txt;
+        }
+
+        function goToMissingPicks(label) {
+            if (currentWeek !== label) setWeekSilently(label);
+            switchTab('my-picks');
+        }
+
+        async function loadMissingPicksBanner() {
+            const el = document.getElementById('missing-picks-banner');
+            if (!el) return;
+            if (missingPicksTimer) { clearInterval(missingPicksTimer); missingPicksTimer = null; }
+            el.classList.add('hidden');
+            if (!currentUserId) return;
+            const wn = detectedCurrentWeekNum || recapWeekNum(currentWeek);
+            if (!wn) return;
+            const label = `Week ${wn}`;
+            try {
+                const [mSnap, pDoc] = await Promise.all([
+                    db.collection('Matches').where('Week', '==', label).get(),
+                    db.collection('Weekly_Picks').doc(`${currentUserId}_${label}`).get()
+                ]);
+                const picks = pDoc.exists ? (pDoc.data().picks || {}) : {};
+                const now = new Date();
+                const missing = [];
+                mSnap.forEach(d => {
+                    const m = d.data();
+                    const date = recapToDate(m.gameDate);
+                    if (!date || date <= now) return;                       // match commencé (verrouillé) ou sans horaire
+                    if (picks[d.id] && picks[d.id].winner) return;           // choix déjà fait
+                    missing.push({ date, matchup: `${draftRefToId(m.away_team_id)} @ ${draftRefToId(m.home_team_id)}` });
+                });
+                if (missing.length === 0) return;
+                missing.sort((a, b) => a.date - b.date);
+                const next = missing[0];
+                const list = missing.slice(0, 4).map(x => x.matchup).join(', ') + (missing.length > 4 ? `, +${missing.length - 4}` : '');
+
+                el.innerHTML = `
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                            <div class="text-sm font-extrabold text-white">⏰ Il te manque ${recapPlural(missing.length, 'choix', 'choix')} pour la Semaine ${wn}</div>
+                            <div class="text-[11px] text-gray-300 mt-0.5">${escapeHtml(list)}</div>
+                        </div>
+                        <div class="text-center">
+                            <div id="missing-countdown" class="text-2xl font-extrabold tabular-nums"></div>
+                            <div class="text-[10px] text-gray-300">avant le prochain verrouillage (${escapeHtml(next.matchup)})</div>
+                        </div>
+                        <button onclick="goToMissingPicks('${label}')" class="bg-[#1f883d] hover:bg-[#2ea043] text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">Faire mes choix</button>
+                    </div>`;
+                el.classList.remove('hidden');
+
+                const tick = () => {
+                    const ms = next.date - new Date();
+                    if (ms <= 0) { clearInterval(missingPicksTimer); missingPicksTimer = null; loadMissingPicksBanner(); return; }
+                    const cd = document.getElementById('missing-countdown');
+                    if (cd) cd.textContent = formatCountdown(ms);
+                    const tone = ms < 3600000 ? 'border-red-500/70 bg-red-500/10' : (ms < 86400000 ? 'border-amber-500/70 bg-amber-500/10' : 'border-blue-500/60 bg-blue-500/10');
+                    el.className = `card-match p-4 rounded-xl border ${tone}`;
+                    if (cd) cd.className = `text-2xl font-extrabold tabular-nums ${ms < 3600000 ? 'text-red-400' : (ms < 86400000 ? 'text-amber-300' : 'text-blue-300')}`;
+                };
+                tick();
+                missingPicksTimer = setInterval(tick, 1000);
+            } catch (error) {
+                console.error('Erreur bandeau choix manquants :', error);
+            }
+        }
+
+        // ===== RÉCAP : DONNÉES ET CALCUL DES FAITS =====
+        async function loadRecapInputs(weekLabel) {
+            const [mSnap, pSnap, tSnap] = await Promise.all([
+                db.collection('Matches').where('Week', '==', weekLabel).get(),
+                db.collection('Weekly_Picks').where('week', '==', weekLabel).get(),
+                db.collection('Teams').get()
+            ]);
+            const teamNames = {};
+            tSnap.forEach(d => { teamNames[d.id] = d.data().name || d.id; });
+            const matches = mSnap.docs.map(d => {
+                const m = d.data();
+                return {
+                    id: d.id,
+                    home: draftRefToId(m.home_team_id),
+                    away: draftRefToId(m.away_team_id),
+                    home_score: m.home_score,
+                    away_score: m.away_score,
+                    is_bonus: m.is_bonus_game === true,
+                    date: recapToDate(m.gameDate),
+                    sortOrder: m.sortOrder !== undefined ? Number(m.sortOrder) : null
+                };
+            });
+            const picks = {};
+            pSnap.forEach(d => { const x = d.data(); if (x.username) picks[x.username] = x.picks || {}; });
+            return { matches, picks, teamNames };
+        }
+
+        // Un match est « joué » quand il a un score valide autre que 0-0
+        function recapIsPlayed(m) {
+            const h = m.home_score, a = m.away_score;
+            if (h === undefined || a === undefined || h === null || a === null || h === '' || a === '') return false;
+            const hn = Number(h), an = Number(a);
+            if (isNaN(hn) || isNaN(an)) return false;
+            return !(hn === 0 && an === 0);
+        }
+
+        // Même barème que le calcul de la Ligue : 1 pt gagnant, +1 pt écart (7,5), doublé sur le match bonus
+        function recapPickPoints(m, pick) {
+            if (!pick || !pick.winner) return { points: 0, picked: false, correctWinner: false, correctSpread: false };
+            const hn = Number(m.home_score), an = Number(m.away_score);
+            const isHome = pick.winner === m.home;
+            const chosen = isHome ? hn : an, opp = isHome ? an : hn;
+            const correctWinner = chosen > opp;
+            const diff = Math.abs(hn - an);
+            let correctSpread = false;
+            if (correctWinner && pick.spread) {
+                if (pick.spread === '-') correctSpread = diff < 7.5;
+                else if (pick.spread === '+') correctSpread = diff >= 7.5;
+            }
+            let points = (correctWinner ? 1 : 0) + (correctSpread ? 1 : 0);
+            if (m.is_bonus) points *= 2;
+            return { points, picked: true, correctWinner, correctSpread };
+        }
+
+        function computeRecapFacts(inputs, weekNum) {
+            const { matches, picks, teamNames } = inputs;
+            const participants = Object.keys(picks).sort((a, b) => a.localeCompare(b));
+            const short = id => recapShortTeam(teamNames[id] || id);
+            const ordered = [...matches].sort((a, b) => ((a.date ? a.date.getTime() : 0) - (b.date ? b.date.getTime() : 0)) || ((a.sortOrder || 0) - (b.sortOrder || 0)));
+            const played = ordered.filter(recapIsPlayed);
+            const facts = { week: weekNum, participants, totalMatches: matches.length, playedMatches: played.length, complete: matches.length > 0 && played.length === matches.length };
+            if (participants.length < 2 || played.length === 0) { facts.insufficient = true; return facts; }
+
+            const res = {};
+            participants.forEach(u => { res[u] = {}; played.forEach(m => { res[u][m.id] = recapPickPoints(m, picks[u][m.id]); }); });
+            const winnerId = m => { const h = Number(m.home_score), a = Number(m.away_score); return h > a ? m.home : (a > h ? m.away : null); };
+            const minfo = m => ({ label: `${short(m.away)} contre ${short(m.home)}`, winner: winnerId(m) ? short(winnerId(m)) : null, score: `${Number(m.away_score)}-${Number(m.home_score)}`, bonus: m.is_bonus });
+
+            // Classement : points, puis bons gagnants, puis points sur les matchs bonus
+            const stats = participants.map(u => ({
+                user: u,
+                points: played.reduce((s, m) => s + res[u][m.id].points, 0),
+                winners: played.filter(m => res[u][m.id].correctWinner).length,
+                bonus: played.filter(m => m.is_bonus).reduce((s, m) => s + res[u][m.id].points, 0),
+                missed: played.filter(m => !res[u][m.id].picked).length
+            }));
+            stats.sort((a, b) => b.points - a.points || b.winners - a.winners || b.bonus - a.bonus || a.user.localeCompare(b.user));
+            facts.ranking = stats.map(s => ({ user: s.user, points: s.points, goodWinners: s.winners, bonusPoints: s.bonus }));
+
+            const top = stats[0];
+            const tied = stats.filter(s => s.points === top.points);
+            let champions = [top.user];
+            facts.tie = null;
+            if (tied.length > 1) {
+                const second = tied[1];
+                const by = top.winners !== second.winners ? 'winners' : (top.bonus !== second.bonus ? 'bonus' : 'none');
+                if (by === 'none') champions = tied.filter(s => s.winners === top.winners && s.bonus === top.bonus).map(s => s.user);
+                facts.tie = { users: tied.map(s => s.user), points: top.points, resolvedBy: by, detail: tied.map(s => ({ user: s.user, goodWinners: s.winners, bonusPoints: s.bonus })) };
+            }
+            facts.champions = champions;
+            const runner = stats.find(s => !champions.includes(s.user));
+            facts.runnerUp = runner ? runner.user : null;
+            facts.margin = runner ? top.points - runner.points : 0;
+            facts.championPoints = top.points;
+
+            // Progression match par match (ordre des coups d'envoi)
+            const cum = {};
+            participants.forEach(u => { cum[u] = 0; });
+            const steps = played.map(m => {
+                participants.forEach(u => { cum[u] += res[u][m.id].points; });
+                const max = Math.max(...participants.map(u => cum[u]));
+                return { m, leaders: participants.filter(u => cum[u] === max), max };
+            });
+            let lastUnique = null, changes = 0;
+            steps.forEach(st => {
+                if (st.leaders.length === 1) {
+                    if (lastUnique && lastUnique !== st.leaders[0]) changes++;
+                    lastUnique = st.leaders[0];
+                }
+            });
+            facts.leadChanges = changes;
+            const k = Math.min(3, steps.length);
+            facts.early = { afterMatches: k, leaders: steps[k - 1].leaders, points: steps[k - 1].max };
+
+            const champSet = new Set(champions);
+            let lastNotLeading = -1;
+            steps.forEach((st, i) => { if (!st.leaders.some(l => champSet.has(l))) lastNotLeading = i; });
+            facts.ledFromStart = lastNotLeading === -1;
+            facts.takeover = (lastNotLeading >= 0 && lastNotLeading + 1 < steps.length) ? { match: minfo(steps[lastNotLeading + 1].m) } : null;
+
+            // Match décisif : celui où le champion a le plus gagné sur le 2e
+            facts.decisive = null;
+            if (runner) {
+                const c = champions[0];
+                let best = null;
+                played.forEach(m => {
+                    const d = res[c][m.id].points - res[runner.user][m.id].points;
+                    if (!best || d >= best.diff) best = { m, diff: d };
+                });
+                if (best && best.diff > 0) {
+                    facts.decisive = { ...minfo(best.m), champion: c, championPoints: res[c][best.m.id].points, runner: runner.user, runnerPoints: res[runner.user][best.m.id].points, diff: best.diff };
+                }
+            }
+
+            // Matchs bonus
+            facts.bonusGames = played.filter(m => m.is_bonus).map(m => ({
+                ...minfo(m),
+                jackpot: participants.filter(u => res[u][m.id].points === 4),
+                zero: participants.filter(u => res[u][m.id].points === 0)
+            }));
+
+            // Consensus, match piège, paris solitaires
+            facts.sureThings = [];
+            let upset = null;
+            const lone = [], bigMiss = [];
+            played.forEach((m, idx) => {
+                const pickers = participants.filter(u => res[u][m.id].picked);
+                if (pickers.length < 3) return;
+                const wId = winnerId(m);
+                if (!wId) return;
+                const countFor = id => pickers.filter(u => picks[u][m.id].winner === id).length;
+                const correctN = countFor(wId);
+                const share = correctN / pickers.length;
+                if (share >= 0.8) facts.sureThings.push(short(wId));
+                if (share < 0.5 && (!upset || share < upset.share)) {
+                    upset = { ...minfo(m), share, correctCount: correctN, pickers: pickers.length, correctUsers: correctN <= 3 ? pickers.filter(u => picks[u][m.id].winner === wId) : [] };
+                }
+                pickers.forEach(u => {
+                    const mine = picks[u][m.id].winner;
+                    if (countFor(mine) === 1) {
+                        (mine === wId ? lone : bigMiss).push({ user: u, team: short(mine), match: minfo(m), points: res[u][m.id].points, idx });
+                    }
+                });
+            });
+            facts.upset = upset;
+            facts.loneWolf = lone.sort((a, b) => b.points - a.points || a.idx - b.idx)[0] || null;
+            facts.bigMiss = bigMiss.sort((a, b) => a.idx - b.idx)[0] || null;
+            facts.firstHalfBigMiss = !!(facts.bigMiss && facts.bigMiss.idx < Math.ceil(played.length / 2));
+
+            facts.missedPicks = stats.filter(s => s.missed > 0).map(s => ({ user: s.user, missed: s.missed })).sort((a, b) => b.missed - a.missed);
+            const minPts = stats[stats.length - 1].points;
+            facts.last = minPts < top.points ? { users: stats.filter(s => s.points === minPts).map(s => s.user), points: minPts } : null;
+            return facts;
+        }
+
+        // ===== RÉCAP : TEXTE PAR GABARITS (solution de secours, sans IA) =====
+        function buildRecapTemplateText(facts) {
+            const w = facts.week;
+            if (facts.insufficient) return { title: `SEMAINE ${w}`, body: "Pas encore assez de résultats pour raconter cette semaine." };
+            const v = (arr, off = 0) => arr[(w + off) % arr.length];
+            const pts = n => recapPlural(n, 'point', 'points');
+            const champs = facts.champions, multi = champs.length > 1;
+            const champStr = recapJoin(champs);
+            const C = champStr.toUpperCase();
+            const has = multi ? 'ont' : 'a';
+
+            let headline;
+            if (multi) headline = `${C} SE PARTAGENT LE TRÔNE`;
+            else if (facts.margin <= 1) headline = v([`${C} L'EMPORTE DE JUSTESSE`, `PHOTO-FINISH : ${C} GAGNE SUR LE FIL`]);
+            else if (facts.margin >= 4) headline = v([`${C} DOMINE LA LIGUE`, `${C} SIGNE UNE SEMAINE MAGISTRALE`]);
+            else if (facts.leadChanges >= 2) headline = `MONTAGNES RUSSES : ${C} SORT VAINQUEUR`;
+            else headline = `${C} PREND LES COMMANDES`;
+            const title = `ÉDITION SPÉCIALE – SEMAINE ${w} : ${headline}`;
+
+            // 1. Le début de semaine
+            const p1 = [];
+            if (!facts.complete) p1.push(`(Résultats partiels : ${facts.playedMatches} match(s) terminé(s) sur ${facts.totalMatches}.)`);
+            p1.push(v(["Quelle semaine dans la ligue !", "Retour sur une semaine riche en émotions au pool !", "Une semaine de plus, une semaine de rebondissements dans la ligue !"]));
+            if (facts.early.leaders.length < facts.participants.length) {
+                p1.push(`${v(["Le départ a été rapide pour", "Ça a démarré fort pour", "Les premiers matchs ont souri à"], 1)} ${recapJoin(facts.early.leaders)}, ${v(["en tête avec", "qui comptaient", "déjà installés avec"], 2)} ${pts(facts.early.points)} après ${recapPlural(facts.early.afterMatches, 'match', 'matchs')}.`);
+            } else {
+                p1.push(`Au départ, tout le monde se tenait dans un mouchoir de poche après ${recapPlural(facts.early.afterMatches, 'match', 'matchs')}.`);
+            }
+            if (facts.bigMiss && facts.firstHalfBigMiss && !champs.includes(facts.bigMiss.user)) {
+                const b = facts.bigMiss;
+                p1.push(`Pendant ce temps, ${b.user} tentait un coup de dé sur ${b.team} (${b.match.label}, ${b.match.score}) : un pari solitaire qui ne rapportait aucun point.`);
+            }
+
+            // 2. Le tournant
+            const p2 = [];
+            if (facts.leadChanges >= 1) p2.push(`${recapPlural(facts.leadChanges, 'changement', 'changements')} de meneur ${facts.leadChanges > 1 ? 'ont ponctué' : 'a ponctué'} la semaine.`);
+            if (facts.decisive) {
+                const d = facts.decisive;
+                const jack = d.bonus && d.championPoints === 4;
+                p2.push(`${v(["Le vrai tournant", "Le moment décisif", "Le match qui a fait la différence"], 3)} : ${d.label}${d.bonus ? ', le match ciblé' : ''} (${d.score}). ${d.champion} y a empoché ${jack ? 'un jackpot de 4 points' : pts(d.championPoints)}, contre ${pts(d.runnerPoints)} pour ${d.runner}.`);
+            }
+            if (facts.ledFromStart) p2.push(`${champStr} ${has} mené de bout en bout.`);
+            else if (facts.takeover) p2.push(`${champStr} ${has} pris la tête pour de bon après ${facts.takeover.match.label} et ${multi ? "ne l'ont" : "ne l'a"} plus lâchée.`);
+
+            // 3. Ce qui départage le pointage
+            const p3 = [];
+            if (facts.tie) {
+                const t = facts.tie;
+                const detail = t.detail.map(x => `${x.user} (${x.goodWinners})`).join(' contre ');
+                const detailBonus = t.detail.map(x => `${x.user} (${x.bonusPoints})`).join(' contre ');
+                if (t.resolvedBy === 'winners') p3.push(`Égalité à ${pts(t.points)} entre ${recapJoin(t.users)} ! C'est le nombre de bons gagnants qui départage : ${detail}. ${champStr} l'emporte.`);
+                else if (t.resolvedBy === 'bonus') p3.push(`Égalité à ${pts(t.points)} entre ${recapJoin(t.users)}, avec autant de bons gagnants. C'est la récolte sur les matchs bonus qui départage : ${detailBonus}. ${champStr} l'emporte.`);
+                else p3.push(`Égalité parfaite à ${pts(t.points)} : ${champStr} se partagent la victoire, sans aucun critère pour les départager.`);
+            } else {
+                let s = `Au final, ${champStr} termine avec ${pts(facts.championPoints)}, soit ${pts(facts.margin)} d'avance sur ${facts.runnerUp}.`;
+                if (facts.decisive) {
+                    s += facts.decisive.diff >= facts.margin
+                        ? ` Cet écart s'explique à lui seul par ${facts.decisive.label}.`
+                        : ` Dont ${pts(facts.decisive.diff)} gagnés sur ${facts.decisive.label}.`;
+                }
+                p3.push(s);
+            }
+
+            // 4. Les à-côtés
+            const p4 = [];
+            if (facts.upset) {
+                const u = facts.upset;
+                p4.push(`Le match piège de la semaine : ${u.label} (${u.score}), que seulement ${recapPlural(u.correctCount, 'pooler', 'poolers')} sur ${u.pickers} ${u.correctCount > 1 ? 'ont' : 'a'} vu venir${u.correctUsers.length ? ` (${recapJoin(u.correctUsers)})` : ''}.`);
+            }
+            if (facts.loneWolf && !(facts.upset && facts.upset.label === facts.loneWolf.match.label)) {
+                const l = facts.loneWolf;
+                p4.push(`${l.user} a été le seul à parier sur ${l.team} dans ${l.match.label} (${l.match.score}), et ce pari audacieux a rapporté ${pts(l.points)}.`);
+            }
+            if (facts.sureThings.length >= 2) p4.push(`Les victoires sans surprise de ${recapJoin(facts.sureThings.slice(0, 3))} ont fait consensus dans la ligue.`);
+            if (facts.missedPicks.length) p4.push(`Choix manquants à signaler : ${facts.missedPicks.map(m => `${m.user} (${recapPlural(m.missed, 'match', 'matchs')})`).join(', ')}.`);
+            if (facts.last) p4.push(`${recapJoin(facts.last.users)} ${facts.last.users.length > 1 ? 'ferment' : 'ferme'} la marche avec ${pts(facts.last.points)}.`);
+
+            const closing = w >= 18 ? "Rendez-vous aux prochains défis !" : v([`La revanche s'annonce pour la semaine ${w + 1} !`, `Rendez-vous à la semaine ${w + 1} pour la suite des hostilités !`, `Les rivaux ont déjà les yeux rivés sur la semaine ${w + 1} !`], 1);
+
+            const paragraphs = [p1.join(' '), p2.join(' '), p3.join(' '), p4.join(' '), closing].filter(Boolean);
+            return { title, body: paragraphs.join('\n\n') };
+        }
+
+        // ===== RÉCAP : RÉDACTION PAR L'IA (Gemini) =====
+        function buildRecapPrompt(facts) {
+            const sample = `ÉDITION SPÉCIALE – SEMAINE 4 : SUEURS FROIDES ET COUP DE THÉÂTRE AU POOL !
+
+Quelle semaine de montagnes russes dans la ligue ! Ça a débuté en lion pour Julien, Pampers et Willy qui ont enchaîné les bonnes prédictions d'entrée de jeu, pendant que LePape tentait un coup de dé risqué sur Cleveland et se retrouvait rapidement à tirer de la patte. Les affrontements suivants sont restés très serrés, l'ensemble des poolers se rendant coup pour coup sur les favoris comme Indianapolis ou New York.
+
+Mais le vrai tournant de cette Semaine 4 est survenu au milieu de la grille avec le duel entre Jacksonville et Houston. Alors que tout le monde était au coude-à-coude, Willy a réussi le casse du siècle : un jackpot inattendu de 4 points sur ce match ciblé qui l'a propulsé loin devant le peloton !
+
+Malgré une belle résistance de Pampers et Julien dans la deuxième moitié de la semaine avec les victoires sans surprise de Green Bay, Kansas City et Denver, l'écart était déjà creusé. LePape a tout tenté pour refaire son retard en fin de parcours, mais la régularité des meneurs n'a laissé aucune chance de remontée.
+
+Willy signe une performance magistrale et prend les commandes de cette semaine, laissant ses rivaux ruminer leurs choix audacieux. La vengeance s'annonce terrible pour la Semaine 5 !`;
+            return `Tu es le chroniqueur sportif d'un pool de pronostics NFL entre amis. Rédige en français l'édition spéciale qui raconte la semaine ${facts.week} DE LA LIGUE (les poolers et leurs choix), pas un résumé des matchs de la NFL.
+
+RÈGLES STRICTES
+- Utilise UNIQUEMENT les faits fournis dans le JSON ci-dessous. N'invente aucun match, score, point, joueur ou événement. Reprends les prénoms exactement comme écrits.
+- Explique clairement ce qui départage le pointage : l'écart entre le gagnant et le 2e, le match décisif, et la règle de départage si "tie" n'est pas null (resolvedBy "winners" = bons gagnants, "bonus" = points sur matchs bonus, "none" = égalité parfaite).
+- "bonus": true désigne le match ciblé (points doublés). Un "jackpot" vaut 4 points.
+- Si "complete" est false, précise que les résultats sont partiels.
+- Ton journalistique, vivant et humoristique, avec des images sportives, sans exagérer. Pas d'insulte.
+- Aucun markdown, aucun emoji, aucune liste, aucun astérisque.
+
+FORMAT DE SORTIE
+- Première ligne : le titre, au format « ÉDITION SPÉCIALE – SEMAINE ${facts.week} : TITRE ACCROCHEUR EN MAJUSCULES ».
+- Puis une ligne vide, puis 4 à 6 paragraphes courts séparés par une ligne vide, environ 250 à 350 mots au total.
+- Termine par une phrase qui annonce la semaine ${facts.week + 1}.
+
+EXEMPLE DE TON À IMITER (les noms et événements de cet exemple ne doivent PAS être repris) :
+${sample}
+
+FAITS DE LA SEMAINE (JSON) :
+${JSON.stringify(facts)}`;
+        }
+
+        function parseRecapText(raw) {
+            const cleaned = String(raw || '').replace(/```[a-z]*\n?/gi, '').replace(/\*\*/g, '').replace(/^#+\s*/gm, '').trim();
+            const lines = cleaned.split('\n');
+            const title = (lines.shift() || '').trim();
+            return { title, body: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() };
+        }
+
+        async function geminiCall(model, key, prompt) {
+            const base = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+            const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.9 } });
+            let res;
+            try {
+                res = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body });
+            } catch (e) {
+                // second essai avec la clé dans l'URL (contourne certaines restrictions sur les en-têtes)
+                res = await fetch(`${base}?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const err = new Error((data.error && data.error.message) || ('HTTP ' + res.status));
+                err.status = res.status;
+                throw err;
+            }
+            const cand = data.candidates && data.candidates[0];
+            const text = ((cand && cand.content && cand.content.parts) || []).map(p => p.text || '').join('').trim();
+            if (!text) throw new Error('Réponse vide de Gemini (' + ((cand && cand.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'raison inconnue') + ').');
+            return text;
+        }
+
+        async function geminiGenerate(prompt) {
+            const key = lsGet(GEMINI_KEY_LS).trim();
+            if (!key) throw new Error('Aucune clé Gemini enregistrée dans ce navigateur.');
+            const models = [...new Set([lsGet(GEMINI_MODEL_LS).trim(), ...GEMINI_MODEL_FALLBACKS].filter(Boolean))];
+            let lastErr = null;
+            for (const model of models) {
+                try {
+                    const text = await geminiCall(model, key, prompt);
+                    lsSet(GEMINI_MODEL_LS, model);
+                    return { text, model };
+                } catch (e) {
+                    lastErr = e;
+                    if (e.status !== 404) throw e;      // seule une erreur « modèle introuvable » passe au modèle suivant
+                }
+            }
+            throw lastErr;
+        }
+
+        function describeGeminiError(e) {
+            if (e instanceof TypeError) return "Le navigateur n'a pas pu joindre Google (réseau ou blocage CORS).";
+            let msg = e.message || 'Erreur inconnue.';
+            if (/ACCESS_TOKEN_TYPE_UNSUPPORTED/i.test(msg) || /Expected OAuth 2 access token/i.test(msg)) msg += " Ce type de clé (AQ.) semble refusé par cet appel direct : il faudra passer par une autre clé ou un relais.";
+            if (e.status === 429) msg += ' Limite gratuite atteinte, réessaie plus tard.';
+            return (e.status ? `HTTP ${e.status} : ` : '') + msg;
+        }
+
+        // ----- Gestion de la clé (admin, enregistrée dans CE navigateur seulement) -----
+        function refreshGeminiKeyStatus() {
+            const key = lsGet(GEMINI_KEY_LS);
+            const st = document.getElementById('recap-key-status');
+            if (st) st.textContent = key ? `Clé enregistrée dans ce navigateur (se termine par ${key.slice(-4)}).` : "Aucune clé enregistrée dans ce navigateur.";
+            const mi = document.getElementById('recap-model-input');
+            if (mi && !mi.value) mi.value = lsGet(GEMINI_MODEL_LS) || GEMINI_MODEL_FALLBACKS[0];
+        }
+        function saveGeminiKey() {
+            const input = document.getElementById('recap-key-input');
+            const k = (input.value || '').trim();
+            if (k) { lsSet(GEMINI_KEY_LS, k); input.value = ''; }
+            const m = (document.getElementById('recap-model-input').value || '').trim();
+            if (m) lsSet(GEMINI_MODEL_LS, m);
+            refreshGeminiKeyStatus();
+        }
+        function clearGeminiKey() {
+            lsDel(GEMINI_KEY_LS);
+            refreshGeminiKeyStatus();
+        }
+        async function testGeminiKey() {
+            const st = document.getElementById('recap-key-status');
+            saveGeminiKey();
+            st.textContent = '⏳ Test en cours...';
+            try {
+                const { text, model } = await geminiGenerate('Réponds uniquement par le mot OK.');
+                st.textContent = `✅ La clé fonctionne (modèle ${model}). Réponse : ${text.slice(0, 40)}`;
+            } catch (e) {
+                console.error('Test Gemini :', e);
+                st.textContent = '❌ ' + describeGeminiError(e);
+            }
+        }
+
+        // ===== RÉCAP : AFFICHAGE (onglet, Accueil, mode présentation) =====
+        function recapParagraphsHtml(paragraphs, sizeClass) {
+            return paragraphs.map(p => `<p class="${sizeClass} leading-relaxed text-gray-200">${escapeHtml(p)}</p>`).join('');
+        }
+
+        function renderRecapBox(box, recap, wn) {
+            if (!recap) {
+                box.innerHTML = `<div class="text-center text-gray-400 text-xs p-6">Aucun récap disponible pour la Semaine ${wn} (résultats pas encore saisis ou aucun choix enregistré).</div>`;
+                return;
+            }
+            const tag = recap.published
+                ? (recap.source === 'ia' ? '✍️ Rédigé avec l\'IA, relu par l\'admin' : '✍️ Publié par l\'admin')
+                : '⚙️ Récap automatique (non publié)';
+            box.innerHTML = `
+                <div class="space-y-3">
+                    <h3 class="font-serif text-xl md:text-2xl font-extrabold text-amber-200">${escapeHtml(recap.title)}</h3>
+                    ${recap.partial ? '<div class="text-[11px] font-bold text-amber-400">Résultats partiels : la semaine n\'est pas terminée.</div>' : ''}
+                    ${recapParagraphsHtml(recap.paragraphs, 'text-sm')}
+                    <div class="text-[10px] text-gray-500 pt-1">${tag}</div>
+                </div>`;
+        }
+
+        function populateRecapWeekSelect() {
+            const sel = document.getElementById('recap-week-select');
+            if (!sel || recapState.populated) return;
+            sel.innerHTML = Array.from({ length: 18 }, (_, i) => `<option value="Week ${i + 1}">Semaine ${i + 1}</option>`).join('');
+            recapState.populated = true;
+        }
+
+        function loadRecapTab() {
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            if (!isAdmin) return;
+            populateRecapWeekSelect();
+            document.getElementById('recap-admin').classList.remove('hidden');
+            refreshGeminiKeyStatus();
+            if (!recapState.week) {
+                const cur = detectedCurrentWeekNum || recapWeekNum(currentWeek);
+                recapState.week = `Week ${Math.max(1, cur - 1)}`;
+            }
+            document.getElementById('recap-week-select').value = recapState.week;
+            renderRecapForWeek(recapState.week);
+        }
+
+        async function renderRecapForWeek(label) {
+            recapState.week = label;
+            const box = document.getElementById('recap-display');
+            box.innerHTML = '<div class="text-center text-gray-400 text-xs p-6">Chargement...</div>';
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            try {
+                const wn = recapWeekNum(label);
+                const pubDoc = await db.collection('Weekly_Recaps').doc(`Week_${wn}`).get();
+                recapState.published = pubDoc.exists;
+                let facts = null;
+                if (isAdmin || !pubDoc.exists) facts = computeRecapFacts(await loadRecapInputs(label), wn);
+                recapState.facts = facts;
+
+                let recap = null;
+                if (pubDoc.exists) {
+                    const d = pubDoc.data();
+                    recap = { title: d.title || `SEMAINE ${wn}`, paragraphs: splitRecapParagraphs(d.body), source: d.source || 'manuel', published: true };
+                } else if (facts && !facts.insufficient) {
+                    const t = buildRecapTemplateText(facts);
+                    recap = { title: t.title, paragraphs: splitRecapParagraphs(t.body), source: 'gabarit', published: false, partial: !facts.complete };
+                }
+                recapState.display = recap ? { ...recap, week: wn } : null;
+                renderRecapBox(box, recap, wn);
+                updateRecapAdminPanel();
+            } catch (error) {
+                console.error('Erreur récap :', error);
+                box.innerHTML = '<div class="text-center text-red-400 text-xs p-6">Erreur de chargement du récap (voir la console, F12).</div>';
+            }
+        }
+
+        function updateRecapAdminPanel() {
+            const isAdmin = currentUserProfile && currentUserProfile.isAdmin === true;
+            if (!isAdmin) return;
+            document.getElementById('recap-draft').classList.add('hidden');
+            document.getElementById('recap-gen-status').textContent = '';
+            document.getElementById('recap-unpublish-btn').classList.toggle('hidden', !recapState.published);
+            document.getElementById('recap-facts-json').textContent = recapState.facts ? JSON.stringify(recapState.facts, null, 2) : '(aucun fait calculé)';
+        }
+
+        async function generateRecapDraft(mode) {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const status = document.getElementById('recap-gen-status');
+            const facts = recapState.facts;
+            if (!facts || facts.insufficient) { status.textContent = 'Pas assez de résultats pour générer un récap sur cette semaine.'; return; }
+            let result;
+            try {
+                if (mode === 'ai') {
+                    status.textContent = '⏳ Gemini rédige le récap...';
+                    const { text, model } = await geminiGenerate(buildRecapPrompt(facts));
+                    result = parseRecapText(text);
+                    recapState.draftSource = 'ia';
+                    status.textContent = `✅ Brouillon généré (${model}). Relis-le, corrige-le, puis publie.`;
+                } else {
+                    result = buildRecapTemplateText(facts);
+                    recapState.draftSource = 'gabarit';
+                    status.textContent = '✅ Brouillon par gabarit généré. Relis-le, corrige-le, puis publie.';
+                }
+            } catch (e) {
+                console.error('Génération récap :', e);
+                status.textContent = '❌ ' + describeGeminiError(e) + ' Tu peux utiliser le gabarit en attendant.';
+                return;
+            }
+            document.getElementById('recap-draft-title').value = result.title;
+            document.getElementById('recap-draft-body').value = result.body;
+            document.getElementById('recap-draft').classList.remove('hidden');
+        }
+
+        async function publishRecapDraft() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const status = document.getElementById('recap-gen-status');
+            const title = document.getElementById('recap-draft-title').value.trim();
+            const body = document.getElementById('recap-draft-body').value.trim();
+            if (!title || !body) { status.textContent = 'Le titre et le texte sont obligatoires.'; return; }
+            const wn = recapWeekNum(recapState.week);
+            try {
+                await db.collection('Weekly_Recaps').doc(`Week_${wn}`).set({
+                    week: recapState.week, title, body,
+                    source: recapState.draftSource || 'manuel',
+                    publishedBy: currentUserId,
+                    publishedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                delete homeRecapCache[wn];
+                await renderRecapForWeek(recapState.week);
+                document.getElementById('recap-gen-status').textContent = '✅ Récap publié.';
+            } catch (e) {
+                console.error('Publication récap :', e);
+                status.textContent = '❌ Impossible de publier (voir la console). Vérifie que les règles Firestore autorisent la collection Weekly_Recaps.';
+            }
+        }
+
+        async function unpublishRecap() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            if (!confirm(`Retirer le récap publié de ${recapState.week} ?`)) return;
+            try {
+                await db.collection('Weekly_Recaps').doc(`Week_${recapWeekNum(recapState.week)}`).delete();
+                delete homeRecapCache[recapWeekNum(recapState.week)];
+                await renderRecapForWeek(recapState.week);
+            } catch (e) {
+                console.error('Retrait récap :', e);
+                alert('Impossible de retirer le récap (voir la console).');
+            }
+        }
+
+        // ----- Accueil : récap de la semaine précédente (par rapport à la semaine sélectionnée), section repliable -----
+        function applyHomeRecapState(isOpen) {
+            const content = document.getElementById('home-recap-content');
+            const arrow = document.getElementById('home-recap-arrow');
+            const btn = document.getElementById('home-recap-toggle');
+            if (!content || !arrow || !btn) return;
+            content.classList.toggle('hidden', !isOpen);
+            arrow.textContent = isOpen ? '▲' : '▼';
+            btn.setAttribute('aria-expanded', String(isOpen));
+            btn.title = isOpen ? 'Fermer la section' : 'Ouvrir la section';
+        }
+        function toggleHomeRecap() {
+            const r = recapState.homeDisplay;
+            const content = document.getElementById('home-recap-content');
+            if (!r || !content) return;
+            const willOpen = content.classList.contains('hidden');
+            homeRecapChoice[r.week] = willOpen;
+            applyHomeRecapState(willOpen);
+        }
+
+        // Ouvert par défaut pendant 2 jours : après la publication, ou (récap automatique) le mardi et le mercredi qui suivent la semaine
+        function isHomeRecapFresh(recap, weekNum, now) {
+            if (recap.publishedAt) return (now - recap.publishedAt) < HOME_RECAP_FRESH_MS;
+            const cur = detectedCurrentWeekNum || recapWeekNum(currentWeek);
+            return weekNum === cur - 1 && isRecapWindowOpen(now);
+        }
+
+        async function loadHomeRecap() {
+            const card = document.getElementById('home-recap');
+            if (!card) return;
+            card.classList.add('hidden');
+            const prev = recapWeekNum(currentWeek) - 1;      // semaine sélectionnée moins 1
+            if (!(prev >= 1)) return;
+            try {
+                let recap = homeRecapCache[prev];
+                if (!recap) {
+                    const pubDoc = await db.collection('Weekly_Recaps').doc(`Week_${prev}`).get();
+                    if (pubDoc.exists) {
+                        const d = pubDoc.data();
+                        recap = { title: d.title || `SEMAINE ${prev}`, paragraphs: splitRecapParagraphs(d.body), source: d.source || 'manuel', published: true, publishedAt: recapToDate(d.publishedAt) };
+                    } else {
+                        const facts = computeRecapFacts(await loadRecapInputs(`Week ${prev}`), prev);
+                        if (facts.insufficient || !facts.complete) return;
+                        const t = buildRecapTemplateText(facts);
+                        recap = { title: t.title, paragraphs: splitRecapParagraphs(t.body), source: 'gabarit', published: false, publishedAt: null };
+                    }
+                    homeRecapCache[prev] = recap;
+                }
+                if (recapWeekNum(currentWeek) - 1 !== prev) return;   // la semaine sélectionnée a changé entre-temps
+                recapState.homeDisplay = { ...recap, week: prev };
+                renderRecapBox(document.getElementById('home-recap-body'), recap, prev);
+                document.getElementById('home-recap-week').textContent = `Semaine ${prev}`;
+                document.getElementById('home-recap-present').classList.toggle('hidden', !(currentUserProfile && currentUserProfile.isAdmin === true));
+                const isOpen = homeRecapChoice[prev] !== undefined ? homeRecapChoice[prev] : isHomeRecapFresh(recap, prev, new Date());
+                applyHomeRecapState(isOpen);
+                card.classList.remove('hidden');
+            } catch (error) {
+                console.error('Erreur récap Accueil :', error);
+            }
+        }
+
+        // ----- Mode présentation (plein écran) -----
+        function openRecapPresentation(source) {
+            const r = source === 'home' ? recapState.homeDisplay : recapState.display;
+            if (!r) { alert("Aucun récap à présenter pour cette semaine."); return; }
+            document.getElementById('recap-pres-title').textContent = r.title;
+            document.getElementById('recap-pres-body').innerHTML = recapParagraphsHtml(r.paragraphs, 'text-xl md:text-3xl');
+            const overlay = document.getElementById('recap-presentation');
+            overlay.classList.remove('hidden');
+            if (overlay.requestFullscreen) overlay.requestFullscreen().catch(() => {});
+        }
+        function closeRecapPresentation() {
+            document.getElementById('recap-presentation').classList.add('hidden');
+            if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        }
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                const o = document.getElementById('recap-presentation');
+                if (o && !o.classList.contains('hidden')) closeRecapPresentation();
+            }
+        });
 
         // ===== DASHBOARD DRAFT (Accueil) =====
         function draftRefToId(ref) {
