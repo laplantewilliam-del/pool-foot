@@ -122,6 +122,36 @@
                 <p class="text-[10px] text-gray-500 mt-3">Source : ESPN. Les scores se rafraîchissent automatiquement toutes les 60 secondes pendant que tu es sur l'Accueil. Les scores affichés ici ne sont pas ceux de la base de données tant qu'un admin ne les a pas importés.</p>
             </div>
 
+
+            <!-- COURSE DE LA SEMAINE (Ligue) : points projetés selon les scores en direct -->
+            <div id="home-league-race" class="hidden card-match p-6 rounded-xl border border-sky-500/40 bg-gradient-to-br from-[#161b22] to-[#0f1c26]">
+                <div class="mb-3">
+                    <h2 class="text-lg font-bold text-sky-300">🏁 Course de la semaine (en direct)</h2>
+                    <p id="league-race-subtitle" class="text-xs text-gray-400 mt-1"></p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div class="lg:col-span-3">
+                        <div class="relative h-72 w-full"><canvas id="leagueRaceChart"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-2 overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-[#30363d]">
+                                    <th class="p-2">#</th>
+                                    <th class="p-2">Participant</th>
+                                    <th class="p-2 text-center" title="Points des matchs terminés">Acquis</th>
+                                    <th class="p-2 text-center" title="Points si les matchs en cours finissaient au score actuel">En cours</th>
+                                    <th class="p-2 text-right">Projeté</th>
+                                    <th class="p-2 text-right" title="Maximum encore atteignable sur les matchs non terminés">Plafond</th>
+                                </tr>
+                            </thead>
+                            <tbody id="league-race-body" class="divide-y divide-[#30363d]"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-3">Projection : les matchs en cours sont comptés comme s'ils se terminaient sur le score actuel (gagnant, écart de 7,5, points doublés sur le match bonus). Plafond : points acquis plus le maximum encore possible sur les matchs non terminés où le joueur a fait un choix. Seuls les choix de matchs déjà commencés sont utilisés.</p>
+            </div>
+
             <!-- DASHBOARD DRAFT : MENEUR + ÉVOLUTION SEMAINE PAR SEMAINE -->
             <div id="home-draft-dashboard" class="card-match p-6 rounded-xl border border-purple-500/40 bg-gradient-to-br from-[#161b22] to-[#1a1530]">
                 <div class="mb-4">
@@ -423,7 +453,10 @@
                     <h2 class="text-xl font-bold text-amber-300">⚙️ Administration - Saisie des Scores</h2>
                     <div class="flex gap-2 flex-wrap">
                         <button id="import-espn-btn" onclick="importEspnScores()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">
-                            📡 Importer les scores d'ESPN
+                            📡 Importer scores et heures d'ESPN
+                        </button>
+                        <button id="import-espn-times-btn" onclick="importEspnSeasonTimes()" class="bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">
+                            🕒 Corriger les heures (toute la saison)
                         </button>
                         <button onclick="recalculateEntireWeek()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow transition">
                         🔄 Recalculer toute la semaine
@@ -717,6 +750,15 @@
                 const away = competitors.find(c => c.homeAway === 'away');
                 if (!home || !away) return null;
                 const st = (ev.status && ev.status.type) || {};
+                const od = Array.isArray(comp.odds) && comp.odds.length ? comp.odds[0] : null;
+                const oNum = v => (v === undefined || v === null || v === '' || isNaN(Number(v))) ? null : Number(v);
+                const odds = od ? {
+                    provider: (od.provider && od.provider.name) || '',
+                    details: od.details || null,
+                    spread: oNum(od.spread) === null ? null : Math.abs(oNum(od.spread)),
+                    favorite: (od.homeTeamOdds && od.homeTeamOdds.favorite === true) ? 'home' : ((od.awayTeamOdds && od.awayTeamOdds.favorite === true) ? 'away' : null),
+                    overUnder: oNum(od.overUnder)
+                } : null;
                 const side = c => ({
                     abbr: c.team && c.team.abbreviation,
                     name: (c.team && (c.team.shortDisplayName || c.team.displayName)) || '',
@@ -729,11 +771,50 @@
                     state: st.state || 'pre',
                     completed: st.completed === true,
                     detail: st.shortDetail || st.detail || '',
+                    odds,
                     home: side(home),
                     away: side(away)
                 };
             }).filter(Boolean);
         }
+
+        // Cache partagé : l'Accueil (scores, course) et Mes Choix (cotes) réutilisent le même appel ESPN
+        const espnWeekCache = {};   // semaine -> { at, games, promise }
+        function getEspnWeek(weekLabel, maxAgeMs) {
+            const c = espnWeekCache[weekLabel];
+            if (c && c.games && Date.now() - c.at < maxAgeMs) return Promise.resolve(c.games);
+            if (c && c.promise) return c.promise;
+            const promise = fetchEspnWeek(weekLabel).then(games => {
+                espnWeekCache[weekLabel] = { at: Date.now(), games, promise: null };
+                return games;
+            }).catch(err => {
+                if (c) espnWeekCache[weekLabel] = { at: c.at, games: c.games, promise: null }; else delete espnWeekCache[weekLabel];
+                throw err;
+            });
+            espnWeekCache[weekLabel] = { at: c ? c.at : 0, games: c ? c.games : null, promise };
+            return promise;
+        }
+
+        // Rafraîchissement adaptatif : chaque minute seulement s'il y a un match en direct ou imminent, sinon toutes les 5 minutes
+        let lastLiveRefreshAt = 0;
+        function scheduleLiveScoresRefresh(games) {
+            if (liveScoresTimer) { clearTimeout(liveScoresTimer); liveScoresTimer = null; }
+            let delay = 5 * 60 * 1000;
+            if (games === null) delay = 60 * 1000;   // erreur : nouvel essai dans 1 minute
+            else {
+                const now = Date.now();
+                const busy = games.some(g => g.state === 'in' || (g.state === 'pre' && g.date && (g.date.getTime() - now) < 15 * 60 * 1000 && g.date.getTime() > now - 3600000));
+                if (busy) delay = 60 * 1000;
+            }
+            liveScoresTimer = setTimeout(() => {
+                liveScoresTimer = null;
+                if (currentTab === 'home' && !document.hidden) loadHomeLiveScores();
+                else scheduleLiveScoresRefresh(games);   // onglet caché ou autre page : on ne contacte pas ESPN
+            }, delay);
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && currentTab === 'home' && Date.now() - lastLiveRefreshAt > 60000) loadHomeLiveScores();
+        });
 
         // ----- Affichage sur l'Accueil -----
         async function loadHomeLiveScores() {
@@ -741,18 +822,18 @@
             const sub = document.getElementById('live-scores-subtitle');
             if (!grid || !sub) return;
 
-            if (!liveScoresTimer) {
-                liveScoresTimer = setInterval(() => {
-                    if (currentTab === 'home' && !document.hidden) loadHomeLiveScores();
-                }, 60000);
-            }
-
-            const weekNum = parseInt(String(currentWeek).replace(/\D/g, ''), 10);
+            const weekLabel = currentWeek;
+            const weekNum = parseInt(String(weekLabel).replace(/\D/g, ''), 10);
             try {
-                const games = await fetchEspnWeek(currentWeek);
+                const games = await getEspnWeek(weekLabel, 20000);
+                lastLiveRefreshAt = Date.now();
+                if (currentWeek !== weekLabel) return;   // la semaine a changé pendant le chargement
+                scheduleLiveScoresRefresh(games);
                 if (games.length === 0) {
                     sub.textContent = `Semaine ${weekNum}`;
                     grid.innerHTML = '<div class="text-center text-gray-400 text-xs p-4 md:col-span-2 xl:col-span-3">Aucun match trouvé chez ESPN pour cette semaine.</div>';
+                    const raceCard = document.getElementById('home-league-race');
+                    if (raceCard) raceCard.classList.add('hidden');
                     return;
                 }
                 games.sort((a, b) => (a.date || 0) - (b.date || 0));
@@ -782,26 +863,32 @@
                         ${row(g.home, g.away)}
                     </div>`;
                 }).join('');
+                updateLeagueRace(games, weekLabel);   // même données ESPN, aucun appel supplémentaire
             } catch (error) {
+                scheduleLiveScoresRefresh(null);
                 console.error('Erreur scores ESPN :', error);
                 sub.textContent = `Semaine ${weekNum}`;
                 grid.innerHTML = '<div class="text-center text-red-400 text-xs p-4 md:col-span-2 xl:col-span-3">Impossible de lire les scores ESPN (voir la console du navigateur, F12).</div>';
             }
         }
 
-        // ----- Import dans Firestore (admin) -----
-        // Compare les matchs finaux d'ESPN avec la collection Matches de la semaine et prépare les mises à jour
-        function planEspnImport(games, teamIds, matchDocs) {
+        // ----- Import dans Firestore (admin) : scores ET heures de match -----
+        const ESPN_TIME_TOLERANCE_MS = 60 * 1000;   // moins d'une minute d'écart = même heure
+        const fmtTorontoTime = d => d ? d.toLocaleString('fr-CA', { timeZone: 'America/Toronto', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'aucune';
+
+        // Compare les matchs d'ESPN avec la collection Matches de la semaine et prépare les mises à jour
+        // options.scores : importer les scores (matchs terminés seulement) ; options.times : importer l'heure de coup d'envoi
+        function planEspnImport(games, teamIds, matchDocs, options) {
+            const opts = Object.assign({ scores: true, times: true }, options || {});
             const byKey = {};
             matchDocs.forEach(md => {
                 const h = draftRefToId(md.data.home_team_id), a = draftRefToId(md.data.away_team_id);
                 if (h && a) byKey[`${a}@${h}`] = md;
             });
-            const plan = { updates: [], unchanged: 0, notFinal: 0, unmatchedTeams: [], notFound: [] };
+            const plan = { updates: [], unchanged: 0, notFinal: 0, unmatchedTeams: [], notFound: [], scoreChanges: 0, timeChanges: 0 };
             const toNum = v => (v === undefined || v === null || v === '' || isNaN(Number(v))) ? null : Number(v);
 
             games.forEach(g => {
-                if (!(g.state === 'post' && g.completed) || g.home.score === null || g.away.score === null) { plan.notFinal++; return; }
                 const h = resolveEspnTeam(g.home.abbr, teamIds), a = resolveEspnTeam(g.away.abbr, teamIds);
                 if (!h || !a) { plan.unmatchedTeams.push(`${g.away.abbr} @ ${g.home.abbr}`); return; }
 
@@ -809,21 +896,58 @@
                 if (!md) { md = byKey[`${h}@${a}`]; swapped = !!md; }   // match listé à l'envers dans ta base (ex. match à l'étranger)
                 if (!md) { plan.notFound.push(`${a} @ ${h}`); return; }
 
-                const newHome = swapped ? g.away.score : g.home.score;
-                const newAway = swapped ? g.home.score : g.away.score;
-                const oldHome = toNum(md.data.home_score), oldAway = toNum(md.data.away_score);
-                if (oldHome === newHome && oldAway === newAway) { plan.unchanged++; return; }
-
                 const mh = draftRefToId(md.data.home_team_id), ma = draftRefToId(md.data.away_team_id);
-                plan.updates.push({
-                    ref: md.ref,
-                    home_score: newHome,
-                    away_score: newAway,
-                    label: `${ma} ${newAway} @ ${mh} ${newHome}`,
-                    previous: (oldHome !== null || oldAway !== null) ? `${oldAway === null ? '-' : oldAway}-${oldHome === null ? '-' : oldHome}` : null
-                });
+                const update = { ref: md.ref, fields: {}, label: `${ma} @ ${mh}`, previous: null, oldDate: null, newDate: null, gameDateAsString: false };
+
+                // Scores : seulement les matchs terminés
+                if (opts.scores) {
+                    const isFinal = g.state === 'post' && g.completed && g.home.score !== null && g.away.score !== null;
+                    if (!isFinal) {
+                        plan.notFinal++;
+                    } else {
+                        const newHome = swapped ? g.away.score : g.home.score;
+                        const newAway = swapped ? g.home.score : g.away.score;
+                        const oldHome = toNum(md.data.home_score), oldAway = toNum(md.data.away_score);
+                        if (!(oldHome === newHome && oldAway === newAway)) {
+                            update.fields.home_score = newHome;
+                            update.fields.away_score = newAway;
+                            update.label = `${ma} ${newAway} @ ${mh} ${newHome}`;
+                            update.previous = (oldHome !== null || oldAway !== null) ? `${oldAway === null ? '-' : oldAway}-${oldHome === null ? '-' : oldHome}` : null;
+                            plan.scoreChanges++;
+                        }
+                    }
+                }
+
+                // Heure de coup d'envoi (ESPN la donne en heure universelle UTC, donc sans décalage possible)
+                if (opts.times && g.date) {
+                    const raw = md.data.gameDate;
+                    const old = recapToDate(raw);
+                    if (!old || Math.abs(old.getTime() - g.date.getTime()) > ESPN_TIME_TOLERANCE_MS) {
+                        update.fields.gameDate = g.date;
+                        update.oldDate = old;
+                        update.newDate = g.date;
+                        update.gameDateAsString = typeof raw === 'string';   // on garde le même type que ta base (texte ou Timestamp)
+                        plan.timeChanges++;
+                    }
+                }
+
+                if (Object.keys(update.fields).length === 0) { plan.unchanged++; return; }
+                plan.updates.push(update);
             });
             return plan;
+        }
+
+        function espnUpdateToFirestoreFields(u) {
+            const f = Object.assign({}, u.fields);
+            if (f.gameDate) f.gameDate = u.gameDateAsString ? f.gameDate.toISOString() : firebase.firestore.Timestamp.fromDate(f.gameDate);
+            return f;
+        }
+
+        function describeEspnUpdate(u) {
+            let line = `  ${u.label}`;
+            if (u.previous) line += ` (score avant : ${u.previous})`;
+            if (u.newDate) line += `\n      heure : ${fmtTorontoTime(u.oldDate)} → ${fmtTorontoTime(u.newDate)}`;
+            return line;
         }
 
         async function importEspnScores() {
@@ -847,33 +971,99 @@
                 const plan = planEspnImport(games, teamIds, matchDocs);
 
                 let report = `${currentWeek} : ${games.length} match(s) chez ESPN.\n` +
-                    `- ${plan.updates.length} à importer ou à modifier\n` +
-                    `- ${plan.unchanged} déjà identique(s)\n` +
-                    `- ${plan.notFinal} non terminé(s), ignoré(s)\n`;
+                    `- ${plan.scoreChanges} score(s) à importer ou à modifier\n` +
+                    `- ${plan.timeChanges} heure(s) de match à corriger ou à ajouter\n` +
+                    `- ${plan.unchanged} match(s) déjà à jour\n` +
+                    `- ${plan.notFinal} match(s) non terminé(s) (score ignoré)\n`;
                 if (plan.notFound.length) report += `- Introuvable(s) dans Matches : ${plan.notFound.join(', ')}\n`;
                 if (plan.unmatchedTeams.length) report += `- Équipe(s) inconnue(s) dans Teams : ${plan.unmatchedTeams.join(', ')}\n`;
 
                 if (plan.updates.length === 0) { alert(report + '\nRien à importer.'); return; }
 
-                const lines = plan.updates.slice(0, 20).map(u => `  ${u.label}${u.previous ? ` (avant : ${u.previous})` : ''}`).join('\n');
+                const lines = plan.updates.slice(0, 20).map(describeEspnUpdate).join('\n');
                 const more = plan.updates.length > 20 ? `\n  ... et ${plan.updates.length - 20} autre(s)` : '';
-                if (!confirm(report + `\nMatchs qui seront écrits dans Matches (visiteur @ receveur) :\n${lines}${more}\n\nConfirmer l'import ?`)) return;
+                if (!confirm(report + `\nMatchs qui seront modifiés dans Matches (visiteur @ receveur, heures de Toronto/Québec) :\n${lines}${more}\n\nConfirmer l'import ?`)) return;
 
                 if (btn) btn.innerHTML = '⏳ Import en cours...';
                 const batch = db.batch();
-                plan.updates.forEach(u => batch.update(u.ref, { home_score: u.home_score, away_score: u.away_score }));
+                plan.updates.forEach(u => batch.update(u.ref, espnUpdateToFirestoreFields(u)));
                 await batch.commit();
                 teamFormCache = null;
 
-                await processWeekCalculations();   // même calcul que « Enregistrer & Calculer » (choix des joueurs, Survivor)
-
-                if (confirm(`✅ ${plan.updates.length} match(s) importé(s) et points de la Ligue recalculés.\n\nCalculer aussi les points de la Draft pour ${currentWeek} ?`)) {
-                    await calculateDraftPointsForWeek();
+                if (plan.scoreChanges > 0) {
+                    await processWeekCalculations();   // même calcul que « Enregistrer & Calculer » (choix des joueurs, Survivor)
+                    if (confirm(`✅ ${plan.scoreChanges} score(s) et ${plan.timeChanges} heure(s) importé(s), points de la Ligue recalculés.\n\nCalculer aussi les points de la Draft pour ${currentWeek} ?`)) {
+                        await calculateDraftPointsForWeek();
+                    }
+                } else {
+                    alert(`✅ ${plan.timeChanges} heure(s) de match mise(s) à jour pour ${currentWeek}.`);
                 }
                 loadAdminMatches();
             } catch (error) {
                 console.error('Erreur import ESPN :', error);
                 alert("Erreur pendant l'import ESPN (voir la console du navigateur, F12).");
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+            }
+        }
+
+        // Corrige les heures de coup d'envoi de TOUTE la saison (semaines 1 à 18), sans toucher aux scores
+        async function importEspnSeasonTimes() {
+            if (!currentUserProfile || !currentUserProfile.isAdmin) return;
+            const btn = document.getElementById('import-espn-times-btn');
+            const originalLabel = btn ? btn.innerHTML : '';
+            try {
+                if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Lecture de la base...'; }
+                const [teamsSnap, matchesSnap] = await Promise.all([db.collection('Teams').get(), db.collection('Matches').get()]);
+                const teamIds = new Set();
+                teamsSnap.forEach(d => teamIds.add(d.id));
+                const byWeek = {};
+                matchesSnap.forEach(d => { const w = d.data().Week; (byWeek[w] = byWeek[w] || []).push({ ref: d.ref, data: d.data() }); });
+
+                const allUpdates = [], issues = [];
+                let unchanged = 0, weeksRead = 0;
+                for (let w = 1; w <= 18; w++) {
+                    const label = `Week ${w}`;
+                    if (!byWeek[label]) continue;
+                    if (btn) btn.innerHTML = `⏳ ESPN : semaine ${w} / 18...`;
+                    let games;
+                    try { games = await fetchEspnWeek(label); } catch (e) { issues.push(`${label} : lecture d'ESPN impossible`); continue; }
+                    if (games.length === 0) { issues.push(`${label} : aucun match chez ESPN`); continue; }
+                    const plan = planEspnImport(games, teamIds, byWeek[label], { scores: false, times: true });
+                    weeksRead++;
+                    unchanged += plan.unchanged;
+                    plan.updates.forEach(u => allUpdates.push(Object.assign({ week: w }, u)));
+                    plan.notFound.forEach(x => issues.push(`${label} : ${x} introuvable dans Matches`));
+                    plan.unmatchedTeams.forEach(x => issues.push(`${label} : équipe inconnue ${x}`));
+                }
+
+                // Décalage le plus fréquent entre l'heure de ta base et celle d'ESPN (pour vérifier le diagnostic)
+                const shifts = {};
+                allUpdates.forEach(u => { if (u.oldDate) { const m = Math.round((u.newDate - u.oldDate) / 60000); shifts[m] = (shifts[m] || 0) + 1; } });
+                const topShift = Object.entries(shifts).sort((x, y) => y[1] - x[1])[0];
+
+                let report = `Saison : ${weeksRead} semaine(s) lue(s) chez ESPN.\n` +
+                    `- ${allUpdates.length} heure(s) de match à corriger ou à ajouter\n` +
+                    `- ${unchanged} match(s) déjà à la bonne heure\n`;
+                if (topShift) report += `- Décalage le plus fréquent : ${(Number(topShift[0]) / 60 > 0 ? '+' : '') + (Number(topShift[0]) / 60)} h (${topShift[1]} match(s))\n`;
+                if (issues.length) report += `- À vérifier :\n    ${issues.slice(0, 10).join('\n    ')}${issues.length > 10 ? `\n    ... et ${issues.length - 10} autre(s)` : ''}\n`;
+
+                if (allUpdates.length === 0) { alert(report + '\nRien à corriger.'); return; }
+
+                const sample = allUpdates.slice(0, 8).map(u => `  S${u.week} ${u.label}\n      ${fmtTorontoTime(u.oldDate)} → ${fmtTorontoTime(u.newDate)}`).join('\n');
+                if (!confirm(report + `\nExemples (heures de Toronto/Québec) :\n${sample}\n\nSeules les heures de coup d'envoi seront modifiées, aucun score. Confirmer ?`)) return;
+
+                for (let i = 0; i < allUpdates.length; i += 400) {
+                    if (btn) btn.innerHTML = `⏳ Écriture ${Math.min(i + 400, allUpdates.length)} / ${allUpdates.length}...`;
+                    const batch = db.batch();
+                    allUpdates.slice(i, i + 400).forEach(u => batch.update(u.ref, { gameDate: espnUpdateToFirestoreFields(u).gameDate }));
+                    await batch.commit();
+                }
+                alert(`✅ ${allUpdates.length} heure(s) de match corrigée(s).`);
+                loadAdminMatches();
+            } catch (error) {
+                console.error('Erreur correction des heures :', error);
+                alert('Erreur pendant la correction des heures (voir la console du navigateur, F12).');
             } finally {
                 if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
             }
@@ -1603,6 +1793,196 @@ ${JSON.stringify(facts)}`;
                 if (o && !o.classList.contains('hidden')) closeRecapPresentation();
             }
         });
+
+        // ===== COURSE DE LA SEMAINE (Ligue) : points projetés selon les scores en direct =====
+        const leagueRaceState = { week: null, matches: null, picks: null, picksReadAt: 0, startedAtRead: -1, prevRanks: null, moves: {}, chart: null, chartKey: '' };
+
+        // Associe les matchs d'ESPN aux matchs de ta base (mêmes règles que l'import : alias d'équipes, match à l'envers)
+        function mapEspnGamesToMatches(games, matches) {
+            const teamIds = new Set();
+            const byKey = {};
+            matches.forEach(m => { teamIds.add(m.home); teamIds.add(m.away); byKey[`${m.away}@${m.home}`] = m; });
+            const out = [];
+            games.forEach(g => {
+                const h = resolveEspnTeam(g.home.abbr, teamIds), a = resolveEspnTeam(g.away.abbr, teamIds);
+                if (!h || !a) return;
+                let match = byKey[`${a}@${h}`], swapped = false;
+                if (!match) { match = byKey[`${h}@${a}`]; swapped = !!match; }
+                if (!match) return;
+                out.push({ game: g, match, espnHomeId: h, espnAwayId: a, homeScore: swapped ? g.away.score : g.home.score, awayScore: swapped ? g.home.score : g.away.score });
+            });
+            return out;
+        }
+
+        // Calcul pur : points acquis (matchs terminés), points projetés (matchs en cours au score actuel), plafond et progression
+        function computeLeagueRace(mapped, picks) {
+            const users = Object.keys(picks).sort((a, b) => a.localeCompare(b));
+            const t = x => (x.match.date ? x.match.date.getTime() : (x.game.date ? x.game.date.getTime() : 0));
+            const ordered = [...mapped].sort((x, y) => (t(x) - t(y)) || ((x.match.sortOrder || 0) - (y.match.sortOrder || 0)));
+            const acc = {}, live = {}, ceilExtra = {}, cum = {};
+            users.forEach(u => { acc[u] = 0; live[u] = 0; ceilExtra[u] = 0; cum[u] = []; });
+            const labels = [], liveFlags = [];
+            const counts = { final: 0, live: 0, pending: 0 };
+
+            ordered.forEach(x => {
+                const g = x.game;
+                const isFinal = g.state === 'post' && g.completed;
+                const isLive = g.state === 'in';
+                if (isFinal) counts.final++; else if (isLive) counts.live++; else counts.pending++;
+                users.forEach(u => {
+                    const pick = picks[u][x.match.id];
+                    if ((isFinal || isLive) && x.homeScore !== null && x.awayScore !== null) {
+                        const zeroZero = x.homeScore === 0 && x.awayScore === 0;
+                        const r = recapPickPoints({ home: x.match.home, away: x.match.away, home_score: x.homeScore, away_score: x.awayScore, is_bonus: x.match.is_bonus }, pick);
+                        const pts = zeroZero ? 0 : r.points;
+                        if (isFinal) acc[u] += pts; else live[u] += pts;
+                    }
+                    if (!isFinal && pick && pick.winner) ceilExtra[u] += x.match.is_bonus ? 4 : 2;
+                });
+                if (isFinal || isLive) {
+                    labels.push(`${x.match.away}@${x.match.home}`);
+                    liveFlags.push(isLive);
+                    users.forEach(u => cum[u].push(acc[u] + live[u]));
+                }
+            });
+
+            const rows = users.map(u => ({ user: u, acquired: acc[u], live: live[u], projected: acc[u] + live[u], ceiling: acc[u] + ceilExtra[u] }));
+            rows.sort((a, b) => b.projected - a.projected || b.acquired - a.acquired || a.user.localeCompare(b.user));
+            rows.forEach(r => { r.rank = 1 + rows.filter(o => o.projected > r.projected).length; });
+            return { users, rows, labels, liveFlags, cum, counts };
+        }
+
+        async function getRaceMatches(weekLabel) {
+            const st = leagueRaceState;
+            if (st.week === weekLabel && st.matches) return st.matches;
+            const snap = await db.collection('Matches').where('Week', '==', weekLabel).get();
+            const matches = snap.docs.map(d => {
+                const m = d.data();
+                return { id: d.id, home: draftRefToId(m.home_team_id), away: draftRefToId(m.away_team_id), is_bonus: m.is_bonus_game === true, date: recapToDate(m.gameDate), sortOrder: m.sortOrder !== undefined ? Number(m.sortOrder) : null };
+            });
+            if (st.week !== weekLabel) { st.picks = null; st.picksReadAt = 0; st.startedAtRead = -1; st.prevRanks = null; st.moves = {}; }
+            st.week = weekLabel;
+            st.matches = matches;
+            return matches;
+        }
+
+        // Les choix ne sont relus que si un nouveau match a commencé, ou toutes les 5 minutes pendant un match en direct
+        async function getRacePicks(weekLabel, startedCount, anyLive) {
+            const st = leagueRaceState;
+            const needs = !st.picks || startedCount > st.startedAtRead || (anyLive && Date.now() - st.picksReadAt > 5 * 60 * 1000);
+            if (!needs) return st.picks;
+            const snap = await db.collection('Weekly_Picks').where('week', '==', weekLabel).get();
+            const picks = {};
+            snap.forEach(d => { const x = d.data(); if (x.username) picks[x.username] = x.picks || {}; });
+            st.picks = picks;
+            st.picksReadAt = Date.now();
+            st.startedAtRead = startedCount;
+            return picks;
+        }
+
+        async function updateLeagueRace(games, weekLabel) {
+            const card = document.getElementById('home-league-race');
+            if (!card) return;
+            try {
+                const startedCount = games.filter(g => g.state !== 'pre').length;
+                if (startedCount === 0) { card.classList.add('hidden'); return; }   // aucun match commencé : rien à projeter
+                const matches = await getRaceMatches(weekLabel);
+                const mapped = mapEspnGamesToMatches(games, matches);
+                const picks = await getRacePicks(weekLabel, startedCount, games.some(g => g.state === 'in'));
+                if (currentWeek !== weekLabel) return;   // la semaine sélectionnée a changé pendant le chargement
+                const result = computeLeagueRace(mapped, picks);
+                if (result.users.length === 0) { card.classList.add('hidden'); return; }
+                renderLeagueRace(result, weekLabel);
+                card.classList.remove('hidden');
+            } catch (error) {
+                console.error('Erreur course de la semaine :', error);
+            }
+        }
+
+        function renderLeagueRace(r, weekLabel) {
+            const st = leagueRaceState;
+            const sub = document.getElementById('league-race-subtitle');
+            const time = new Date().toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+            sub.textContent = `Semaine ${recapWeekNum(weekLabel)} · ${r.counts.live} en cours, ${r.counts.final} terminé(s), ${r.counts.pending} à venir · mis à jour à ${time}`;
+
+            // Dernier mouvement de rang (conservé tant qu'il n'y en a pas de nouveau)
+            if (st.prevRanks) r.rows.forEach(row => { const d = st.prevRanks[row.user]; if (d !== undefined && d !== row.rank) st.moves[row.user] = d - row.rank; });
+            st.prevRanks = {};
+            r.rows.forEach(row => { st.prevRanks[row.user] = row.rank; });
+
+            document.getElementById('league-race-body').innerHTML = r.rows.map(row => {
+                const mv = st.moves[row.user];
+                const move = mv > 0 ? `<span class="text-green-400 font-bold">▲${mv}</span>` : (mv < 0 ? `<span class="text-red-400 font-bold">▼${-mv}</span>` : '');
+                return `<tr class="${row.user === currentUserId ? 'bg-blue-500/10' : ''}">
+                    <td class="p-2 text-gray-400 whitespace-nowrap">#${row.rank} ${move}</td>
+                    <td class="p-2 font-bold text-white">${escapeHtml(row.user)}</td>
+                    <td class="p-2 text-center text-gray-300">${row.acquired}</td>
+                    <td class="p-2 text-center font-bold ${row.live > 0 ? 'text-green-400' : 'text-gray-500'}">${row.live > 0 ? '+' : ''}${row.live}</td>
+                    <td class="p-2 text-right font-extrabold text-sky-300">${row.projected}</td>
+                    <td class="p-2 text-right text-gray-400">${row.ceiling}</td>
+                </tr>`;
+            }).join('');
+
+            // Graphique : mis à jour sur place (sans reconstruction) tant que les joueurs et le nombre de matchs sont les mêmes
+            const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6'];
+            const datasets = r.users.map((u, i) => ({
+                label: u, data: r.cum[u], borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length],
+                borderWidth: u === currentUserId ? 3.5 : 2, pointRadius: r.liveFlags.map(f => f ? 6 : 3), tension: 0.25
+            }));
+            const key = r.users.join('|');
+            if (st.chart && st.chartKey === key) {
+                st.chart.data.labels = r.labels;
+                st.chart.data.datasets.forEach((ds, i) => { ds.data = datasets[i].data; ds.pointRadius = datasets[i].pointRadius; });
+                st.chart.update('none');
+            } else {
+                if (st.chart) st.chart.destroy();
+                st.chart = new Chart(document.getElementById('leagueRaceChart').getContext('2d'), {
+                    type: 'line',
+                    data: { labels: r.labels, datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', font: { size: 9 }, maxRotation: 60 }, grid: { color: '#30363d' } },
+                            y: { beginAtZero: true, ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#30363d' } }
+                        }
+                    }
+                });
+                st.chartKey = key;
+            }
+        }
+
+        // ===== COTES ESPN (affichées sous chaque match dans « Mes Choix ») =====
+        function formatEspnOddsLine(game, hId, aId) {
+            const o = game.odds;
+            const fmt = n => String(n).replace('.', ',');
+            if (!o) return game.state === 'pre' ? { text: 'Cote ESPN : pas encore publiée', muted: true, title: '' } : null;
+            const parts = [];
+            if (o.spread === 0) parts.push("Pick'em");
+            else if (o.spread !== null && o.favorite) parts.push(`${o.favorite === 'home' ? hId : aId} -${fmt(o.spread)}`);
+            else if (o.details) parts.push(o.details);
+            if (o.overUnder !== null) parts.push(`Total ${fmt(o.overUnder)}`);
+            if (parts.length === 0) return game.state === 'pre' ? { text: 'Cote ESPN : pas encore publiée', muted: true, title: '' } : null;
+            return { text: `Cote ESPN : ${parts.join(' · ')}`, muted: false, title: o.provider ? `Source : ${o.provider}` : '' };
+        }
+
+        async function fillEspnOdds(weekLabel, matchList) {
+            try {
+                const games = await getEspnWeek(weekLabel, 10 * 60 * 1000);   // gardé 10 minutes : pas d'appel à chaque affichage
+                if (currentWeek !== weekLabel) return;
+                mapEspnGamesToMatches(games, matchList).forEach(x => {
+                    const el = document.getElementById(`odds_${x.match.id}`);
+                    const line = formatEspnOddsLine(x.game, x.espnHomeId, x.espnAwayId);
+                    if (!el || !line) return;
+                    el.className = `text-[11px] mt-1 ${line.muted ? 'text-gray-600' : 'text-amber-300/90'}`;
+                    el.title = line.title;
+                    el.textContent = line.text;
+                });
+            } catch (error) {
+                console.warn('Cotes ESPN indisponibles :', error);
+            }
+        }
 
         // ===== DASHBOARD DRAFT (Accueil) =====
         function draftRefToId(ref) {
@@ -2760,6 +3140,7 @@ async function exportLeaguePicksCard() {
                                 <div class="w-full md:w-1/3">
                                     <div class="text-white font-bold text-sm">${awayTeam.name} at ${homeTeam.name}</div>
                                     <div class="text-xs text-blue-400 mt-0.5">📅 ${dateStr}</div>
+                                    <div id="odds_${match.id}" class="text-[11px] mt-1"></div>
                                 </div>
                                 <div class="flex items-start gap-3">
                                     <div class="flex flex-col items-center">
@@ -2787,6 +3168,8 @@ async function exportLeaguePicksCard() {
                     document.getElementById(`card_${match.id}`).dataset.winner = matchPick.winner || "";
                     document.getElementById(`card_${match.id}`).dataset.spread = matchPick.spread || "";
                 }
+                // Cotes ESPN : chargées après l'affichage, sans bloquer la page
+                fillEspnOdds(currentWeek, matchesList.map(m => ({ id: m.id, home: draftRefToId(m.home_team_id), away: draftRefToId(m.away_team_id) })));
             } catch (error) { console.error("Erreur :", error); }
         }
 
